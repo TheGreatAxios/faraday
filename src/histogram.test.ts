@@ -3,7 +3,7 @@ import { histogramCpu, suggestBrightWindow } from "./histogram";
 
 describe("suggestBrightWindow", () => {
   test("picks the bright tail, not mid-grey mass", () => {
-    // 10k dark + 100 bright — upper 0.5% of 10100 is ~50, so the cut sits in the bright bins.
+    // 10k dark + 100 bright — upper 0.1% of 10100 is ~10, so the cut sits in the bright bins.
     const data = new Float32Array(10_100);
     for (let i = 0; i < 10_000; i += 1) data[i] = 100;
     for (let i = 10_000; i < 10_100; i += 1) data[i] = 900 + (i % 50);
