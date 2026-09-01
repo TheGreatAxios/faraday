@@ -127,7 +127,7 @@ function ReadingRoom() {
     // Bundled public sample (UPENN-GBM T1-Gd, CC BY 4.0) so judges can demo
     // without downloading HuggingFace data first.
     await openUrl(
-      "/samples/UPENN-GBM-00001_11_T1GD.nii.gz",
+      `${import.meta.env.BASE_URL}samples/UPENN-GBM-00001_11_T1GD.nii.gz`,
       "UPENN-GBM-00001_11_T1GD.nii.gz",
     );
   }, [openUrl]);
