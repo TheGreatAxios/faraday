@@ -13,11 +13,15 @@ export type ViewName = "axial" | "coronal" | "sagittal" | "multiplanar" | "rende
 export interface ReadingRoomController {
   snapshot(): VolumeSnapshot | null;
   regions(): Region[];
-  setRegions(regions: Region[], labels?: Uint8Array): void;
+  studyEpoch(): number;
+  isLoading(): boolean;
+  /** Returns false if the study epoch moved (stale agent work). */
+  setRegions(regions: Region[], labels?: Uint8Array, epoch?: number): boolean;
   focusVoxel(voxel: [number, number, number]): void;
   setView(view: ViewName): void;
   currentView(): ViewName;
   renderBackend(): "webgpu" | "webgl2" | "unknown";
+  runExclusive<T>(fn: () => T | Promise<T>): Promise<T>;
 }
 
 const VIEWS: ViewName[] = ["axial", "coronal", "sagittal", "multiplanar", "render"];
@@ -55,6 +59,9 @@ function describeRegion(region: Region, snapshot: VolumeSnapshot) {
 
 export function FaradayTools({ controller }: { controller: ReadingRoomController }) {
   const requireVolume = (): VolumeSnapshot | string => {
+    if (controller.isLoading()) {
+      return "A volume is loading. Wait for decode to finish, then call describe_study.";
+    }
     const snapshot = controller.snapshot();
     if (!snapshot) {
       return "No volume is loaded yet. Ask the user to open a NIfTI file, then retry.";
@@ -69,35 +76,45 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
         title="Describe the loaded study"
         description={
           "Report grid size, voxel spacing in mm, intensity range, a suggested bright-region " +
-          "window, and the current view. Call first. Histogram runs on-device; voxels stay in-tab."
+          "window, and the current view. Call first after a study is loaded (including after the " +
+          "user opens a different file — opening replaces the current study). Histogram runs " +
+          "on-device; voxels stay in-tab."
         }
         annotations={{ readOnlyHint: true }}
-        handler={async () => {
-          const snapshot = requireVolume();
-          if (typeof snapshot === "string") return fail(snapshot);
+        handler={async () =>
+          controller.runExclusive(async () => {
+            const snapshot = requireVolume();
+            if (typeof snapshot === "string") return fail(snapshot);
+            const epoch = controller.studyEpoch();
 
-          const { dims, spacing } = snapshot.meta;
-          const hist = await histogramWebGpu(snapshot.data);
-          const hint = suggestBrightWindow(hist);
+            const { dims, spacing } = snapshot.meta;
+            const hist = await histogramWebGpu(snapshot.data);
+            if (controller.studyEpoch() !== epoch) {
+              return fail("Study changed while measuring. Call describe_study again.");
+            }
 
-          return ok(
-            `Loaded "${snapshot.name}": ${dims.join(" × ")} voxels at ` +
-              `${spacing.map((s) => round(s, 2)).join(" × ")} mm. ` +
-              `Intensity ${round(hist.min)} → ${round(hist.max)}. ` +
-              `Suggested bright window for find_regions: ${hint.min} → ${hint.max} ` +
-              `(${hint.reason}). ` +
-              `View: ${controller.currentView()}.`,
-            {
-              name: snapshot.name,
-              dims,
-              spacing_mm: spacing.map((s) => round(s, 3)),
-              intensity_min: round(hist.min),
-              intensity_max: round(hist.max),
-              suggested_window: { min: hint.min, max: hint.max, reason: hint.reason },
-              view: controller.currentView(),
-            },
-          );
-        }}
+            const hint = suggestBrightWindow(hist);
+
+            return ok(
+              `Loaded "${snapshot.name}": ${dims.join(" × ")} voxels at ` +
+                `${spacing.map((s) => round(s, 2)).join(" × ")} mm. ` +
+                `Intensity ${round(hist.min)} → ${round(hist.max)}. ` +
+                `Suggested bright window for find_regions: ${hint.min} → ${hint.max} ` +
+                `(${hint.reason}). ` +
+                `View: ${controller.currentView()}.`,
+              {
+                name: snapshot.name,
+                dims,
+                spacing_mm: spacing.map((s) => round(s, 3)),
+                intensity_min: round(hist.min),
+                intensity_max: round(hist.max),
+                suggested_window: { min: hint.min, max: hint.max, reason: hint.reason },
+                view: controller.currentView(),
+                study_epoch: epoch,
+              },
+            );
+          })
+        }
       />
 
       <WebMCPTool
@@ -107,9 +124,9 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
           "Find connected 3D regions whose voxel intensity falls inside a window, and measure each " +
           "one (volume in mL, bounding box in mm, mean intensity, centroid). Returns the largest " +
           "regions first. Use describe_study to see the intensity range before choosing a window. " +
-          "Voxel data is never returned — only measurements."
+          "Voxel data is never returned — only measurements. Safe across file switches: stale " +
+          "results from a previous study are discarded."
         }
-        annotations={{ readOnlyHint: true }}
         inputSchema={{
           type: "object",
           properties: {
@@ -132,64 +149,76 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
           },
           required: ["min_intensity", "max_intensity"],
         }}
-        handler={(args) => {
-          const snapshot = requireVolume();
-          if (typeof snapshot === "string") return fail(snapshot);
+        handler={(args) =>
+          controller.runExclusive(() => {
+            const snapshot = requireVolume();
+            if (typeof snapshot === "string") return fail(snapshot);
+            const epoch = controller.studyEpoch();
 
-          const min = Number(args.min_intensity);
-          const max = Number(args.max_intensity);
-          if (!Number.isFinite(min) || !Number.isFinite(max)) {
-            return fail("min_intensity and max_intensity must both be numbers.");
-          }
-          if (min > max) {
-            return fail(
-              `Empty window: min_intensity ${min} is above max_intensity ${max}. Swap them and retry.`,
-            );
-          }
+            const min = Number(args.min_intensity);
+            const max = Number(args.max_intensity);
+            if (!Number.isFinite(min) || !Number.isFinite(max)) {
+              return fail("min_intensity and max_intensity must both be numbers.");
+            }
+            if (min > max) {
+              return fail(
+                `Empty window: min_intensity ${min} is above max_intensity ${max}. Swap them and retry.`,
+              );
+            }
 
-          const minVolumeMl = Number.isFinite(Number(args.min_volume_ml))
-            ? Number(args.min_volume_ml)
-            : 0.1;
-          const { spacing } = snapshot.meta;
-          const mlPerVoxel = (spacing[0] * spacing[1] * spacing[2]) / 1000;
-          const minVoxels = Math.max(1, Math.ceil(minVolumeMl / mlPerVoxel));
-          const labelOut = new Uint8Array(snapshot.data.length);
+            const minVolumeMl = Number.isFinite(Number(args.min_volume_ml))
+              ? Number(args.min_volume_ml)
+              : 0.1;
+            const { spacing } = snapshot.meta;
+            const mlPerVoxel = (spacing[0] * spacing[1] * spacing[2]) / 1000;
+            const minVoxels = Math.max(1, Math.ceil(minVolumeMl / mlPerVoxel));
+            const labelOut = new Uint8Array(snapshot.data.length);
 
-          const found = findRegions(snapshot.data, snapshot.meta, {
-            min,
-            max,
-            minVoxels,
-            labelOut,
-          });
-          controller.setRegions(found, labelOut);
+            const found = findRegions(snapshot.data, snapshot.meta, {
+              min,
+              max,
+              minVoxels,
+              labelOut,
+            });
+            if (!controller.setRegions(found, labelOut, epoch)) {
+              return fail(
+                "Study changed while finding regions. Call describe_study on the new volume and retry.",
+              );
+            }
 
-          if (found.length === 0) {
+            if (found.length === 0) {
+              return ok(
+                `No regions of at least ${minVolumeMl} mL fall between ${min} and ${max}. ` +
+                  "Widen the intensity window or lower min_volume_ml.",
+                { regions: [], study_epoch: epoch },
+              );
+            }
+
+            const limit = Number.isFinite(Number(args.limit)) ? Number(args.limit) : 5;
+            const shown = found.slice(0, Math.max(1, limit));
+            const summary = shown
+              .map(
+                (region) =>
+                  `#${region.id}: ${round(region.volumeMl, 2)} mL, ` +
+                  `largest extent ${round(region.maxExtentMm)} mm, ` +
+                  `mean intensity ${round(region.meanIntensity)}`,
+              )
+              .join("\n");
+
             return ok(
-              `No regions of at least ${minVolumeMl} mL fall between ${min} and ${max}. ` +
-                "Widen the intensity window or lower min_volume_ml.",
-              { regions: [] },
+              `Found ${found.length} region(s) in "${snapshot.name}"; showing ${shown.length}. ` +
+                "Extents are axis-aligned bounding box sides, not caliper diameters.\n" +
+                summary +
+                "\nCall focus_region to bring one on screen for the user.",
+              {
+                study: snapshot.name,
+                study_epoch: epoch,
+                total: found.length,
+                regions: shown.map((r) => describeRegion(r, snapshot)),
+              },
             );
-          }
-
-          const limit = Number.isFinite(Number(args.limit)) ? Number(args.limit) : 5;
-          const shown = found.slice(0, Math.max(1, limit));
-          const summary = shown
-            .map(
-              (region) =>
-                `#${region.id}: ${round(region.volumeMl, 2)} mL, ` +
-                `largest extent ${round(region.maxExtentMm)} mm, ` +
-                `mean intensity ${round(region.meanIntensity)}`,
-            )
-            .join("\n");
-
-          return ok(
-            `Found ${found.length} region(s); showing ${shown.length}. ` +
-              "Extents are axis-aligned bounding box sides, not caliper diameters.\n" +
-              summary +
-              "\nCall focus_region to bring one on screen for the user.",
-            { total: found.length, regions: shown.map((r) => describeRegion(r, snapshot)) },
-          );
-        }}
+          })
+        }
       />
 
       <WebMCPTool
@@ -206,32 +235,34 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
           },
           required: ["region_id"],
         }}
-        handler={(args) => {
-          const snapshot = requireVolume();
-          if (typeof snapshot === "string") return fail(snapshot);
+        handler={(args) =>
+          controller.runExclusive(() => {
+            const snapshot = requireVolume();
+            if (typeof snapshot === "string") return fail(snapshot);
 
-          const regions = controller.regions();
-          if (regions.length === 0) {
-            return fail("No regions available yet. Call find_regions first.");
-          }
+            const regions = controller.regions();
+            if (regions.length === 0) {
+              return fail("No regions available yet. Call find_regions first.");
+            }
 
-          const id = Number(args.region_id);
-          const region = regions.find((candidate) => candidate.id === id);
-          if (!region) {
-            return fail(
-              `No region #${id}. Available ids: ${regions.map((r) => r.id).join(", ")}.`,
+            const id = Number(args.region_id);
+            const region = regions.find((candidate) => candidate.id === id);
+            if (!region) {
+              return fail(
+                `No region #${id}. Available ids: ${regions.map((r) => r.id).join(", ")}.`,
+              );
+            }
+
+            const voxel = region.centroid.map(Math.round) as [number, number, number];
+            controller.focusVoxel(voxel);
+
+            return ok(
+              `Focused region #${region.id} (${round(region.volumeMl, 2)} mL). ` +
+                "The viewer now shows it under the crosshair.",
+              describeRegion(region, snapshot),
             );
-          }
-
-          const voxel = region.centroid.map(Math.round) as [number, number, number];
-          controller.focusVoxel(voxel);
-
-          return ok(
-            `Focused region #${region.id} (${round(region.volumeMl, 2)} mL). ` +
-              "The viewer now shows it under the crosshair.",
-            describeRegion(region, snapshot),
-          );
-        }}
+          })
+        }
       />
 
       <WebMCPTool
@@ -243,14 +274,16 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
           properties: { view: { type: "string", enum: VIEWS } },
           required: ["view"],
         }}
-        handler={(args) => {
-          const view = String(args.view) as ViewName;
-          if (!VIEWS.includes(view)) {
-            return fail(`Unknown view "${args.view}". Choose one of: ${VIEWS.join(", ")}.`);
-          }
-          controller.setView(view);
-          return ok(`View set to ${view}.`, { view });
-        }}
+        handler={(args) =>
+          controller.runExclusive(() => {
+            const view = String(args.view) as ViewName;
+            if (!VIEWS.includes(view)) {
+              return fail(`Unknown view "${args.view}". Choose one of: ${VIEWS.join(", ")}.`);
+            }
+            controller.setView(view);
+            return ok(`View set to ${view}.`, { view });
+          })
+        }
       />
 
       <ExperimentalWebMCPJourney
@@ -268,7 +301,8 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
           name="export_findings"
           description={
             "Export the measurements for the regions currently found as a JSON summary the user can " +
-            "save. Only measurements leave the page — never voxel data. Requires the user to approve."
+            "save. Only measurements leave the page — never voxel data. Requires the user to approve. " +
+            "If the user opens a different file while approval is pending, the export is cancelled."
           }
           inputSchema={{
             type: "object",
@@ -276,25 +310,38 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
               note: { type: "string", description: "Optional note to attach to the export." },
             },
           }}
-          handler={(args: Record<string, unknown>) => {
-            const snapshot = requireVolume();
-            if (typeof snapshot === "string") return fail(snapshot);
+          handler={(args: Record<string, unknown>) =>
+            controller.runExclusive(() => {
+              const snapshot = requireVolume();
+              if (typeof snapshot === "string") return fail(snapshot);
 
-            const regions = controller.regions();
-            if (regions.length === 0) {
-              return fail("Nothing to export yet. Call find_regions first.");
-            }
+              const regions = controller.regions();
+              if (regions.length === 0) {
+                return fail(
+                  "Nothing to export yet. Call find_regions first (or the study changed — re-run find_regions).",
+                );
+              }
 
-            return ok(
-              `Exported ${regions.length} measured region(s). Voxel data was not included.`,
-              {
+              // Freeze the payload now (post-approve) against the live study.
+              const epoch = controller.studyEpoch();
+              const payload = {
                 study: snapshot.name,
+                study_epoch: epoch,
                 exported_at: new Date().toISOString(),
                 note: typeof args.note === "string" ? args.note : undefined,
                 regions: regions.map((region) => describeRegion(region, snapshot)),
-              },
-            );
-          }}
+              };
+
+              if (controller.studyEpoch() !== epoch || controller.isLoading()) {
+                return fail("Study changed during export. Re-run find_regions on the new volume.");
+              }
+
+              return ok(
+                `Exported ${regions.length} measured region(s) from "${snapshot.name}". Voxel data was not included.`,
+                payload,
+              );
+            })
+          }
         />
       </ExperimentalWebMCPJourney>
     </>

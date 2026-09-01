@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "record-demo": "bun run scripts/record-demo.ts"
+    "record-demo": "bun run scripts/record-demo.ts",
+    "e2e:multifile": "bun scripts/e2e-multifile.mjs"
   },
   "dependencies": {
     "@niivue/niivue": "next",

@@ -42,7 +42,7 @@ bun test
 bun run build
 ```
 
-Click **Load demo CT/MR** (bundled UPENN-GBM T1-Gd, CC BY 4.0) or open your own `.nii` / `.nii.gz`.
+Click **Load demo CT/MR** (bundled UPENN-GBM T1-Gd, CC BY 4.0) or open your own `.nii` / `.nii.gz`. Opening a file **replaces** the current study (one volume per tab). Agents share that study; mutating tools run one-at-a-time so concurrent calls don't interleave.
 
 ### Agent testing
 

@@ -4,13 +4,13 @@ import {
   ExperimentalWebMCPConfirmProvider,
   experimental_useWebMCPConfirm,
 } from "@thegreataxios/webmcp-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { Region } from "./regions";
+import { StudyGate, createExclusiveQueue } from "./session";
 import { FaradayTools, type ReadingRoomController, type ViewName } from "./tools";
 import { readVolume, type NiiVueLike, type VolumeSnapshot } from "./viewer";
 
 type RenderBackend = "webgpu" | "webgl2" | "unknown";
-
 const SLICE_TYPES: Record<ViewName, number> = {
   axial: SLICE_TYPE.AXIAL,
   coronal: SLICE_TYPE.CORONAL,
@@ -35,11 +35,25 @@ function preferBackend(): "webgpu" | "webgl2" {
   return typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "webgl2";
 }
 
+function pickFile(
+  event: ChangeEvent<HTMLInputElement>,
+  openFile: (file: File) => Promise<void>,
+) {
+  const file = event.target.files?.[0];
+  // Reset so selecting the same path again still fires change.
+  event.target.value = "";
+  if (file) void openFile(file);
+}
+
 function ReadingRoom() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nvRef = useRef<InstanceType<typeof NiiVue> | null>(null);
   const snapshotRef = useRef<VolumeSnapshot | null>(null);
   const regionsRef = useRef<Region[]>([]);
+  const gateRef = useRef(new StudyGate());
+  const exclusiveRef = useRef(createExclusiveQueue());
+  const readyRef = useRef<Promise<void> | null>(null);
+  const resolveReadyRef = useRef<(() => void) | null>(null);
 
   const [studyName, setStudyName] = useState<string | null>(null);
   const [studyMeta, setStudyMeta] = useState<{ dims: number[]; spacing: number[] } | null>(null);
@@ -48,10 +62,16 @@ function ReadingRoom() {
   const [view, setView] = useState<ViewName>("multiplanar");
   const [backend, setBackend] = useState<RenderBackend>("unknown");
   const [loading, setLoading] = useState(false);
+  const [studyEpoch, setStudyEpoch] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    readyRef.current = new Promise<void>((resolve) => {
+      resolveReadyRef.current = resolve;
+    });
 
     const preferred = preferBackend();
     const opts = {
@@ -67,6 +87,7 @@ function ReadingRoom() {
     void (async () => {
       try {
         await nv.attachToCanvas(canvas);
+        setBackend((nv.backend as RenderBackend | undefined) ?? preferred);
       } catch (error) {
         if (preferred === "webgpu") {
           const fallback = new NiiVue({ ...opts, backend: "webgl2" });
@@ -74,11 +95,13 @@ function ReadingRoom() {
           await fallback.attachToCanvas(canvas);
           setBackend("webgl2");
           console.warn("WebGPU attach failed; fell back to WebGL2", error);
-          return;
+        } else {
+          throw error;
         }
-        throw error;
+      } finally {
+        resolveReadyRef.current?.();
+        resolveReadyRef.current = null;
       }
-      setBackend((nv.backend as RenderBackend | undefined) ?? preferred);
     })();
 
     return () => {
@@ -97,6 +120,9 @@ function ReadingRoom() {
     nv.createEmptyDrawing();
     const drawing = nv.drawingVolume as { img?: Uint8Array } | null;
     if (!drawing?.img || drawing.img.length !== labels.length) {
+      // Dim mismatch (stale labels vs new study) — keep draw off.
+      nv.drawIsEnabled = false;
+      nv.drawScene();
       return;
     }
     drawing.img.set(labels);
@@ -106,26 +132,46 @@ function ReadingRoom() {
     nv.drawScene();
   }, []);
 
+  const clearStudySurface = useCallback(() => {
+    snapshotRef.current = null;
+    regionsRef.current = [];
+    setRegions([]);
+    setFocused(null);
+    paintOverlay(null);
+  }, [paintOverlay]);
+
   const openUrl = useCallback(
     async (url: string, name: string) => {
+      await readyRef.current;
       const nv = nvRef.current;
       if (!nv) return;
+
+      const gen = gateRef.current.beginLoad();
+      setStudyEpoch(gen);
       setLoading(true);
+      setLoadError(null);
+      // Drop the live snapshot immediately so agents cannot measure the old study
+      // while the new one is decoding.
+      clearStudySurface();
+
       try {
         await nv.loadVolumes([{ url, name }]);
-        snapshotRef.current = readVolume(nv as unknown as NiiVueLike);
-        regionsRef.current = [];
-        setRegions([]);
-        setFocused(null);
-        paintOverlay(null);
-        const snap = snapshotRef.current;
+        if (!gateRef.current.commit(gen)) return;
+
+        const snap = readVolume(nv as unknown as NiiVueLike);
+        snapshotRef.current = snap;
         setStudyName(snap?.name ?? name);
         setStudyMeta(snap ? { dims: snap.meta.dims, spacing: snap.meta.spacing } : null);
-      } finally {
         setLoading(false);
+      } catch (error) {
+        gateRef.current.fail(gen);
+        if (gateRef.current.isCurrent(gen)) {
+          setLoading(false);
+          setLoadError(error instanceof Error ? error.message : "Failed to open volume.");
+        }
       }
     },
-    [paintOverlay],
+    [clearStudySurface],
   );
 
   const openFile = useCallback(
@@ -165,11 +211,16 @@ function ReadingRoom() {
   const controller: ReadingRoomController = {
     snapshot: () => snapshotRef.current,
     regions: () => regionsRef.current,
-    setRegions: (next, labels) => {
+    studyEpoch: () => gateRef.current.epoch,
+    isLoading: () => gateRef.current.loading,
+    setRegions: (next, labels, epoch) => {
+      if (epoch !== undefined && !gateRef.current.isCurrent(epoch)) return false;
+      if (gateRef.current.loading) return false;
       regionsRef.current = next;
       setRegions(next);
       setFocused(null);
       paintOverlay(labels ?? null);
+      return true;
     },
     focusVoxel: (voxel) => {
       const nv = nvRef.current;
@@ -184,6 +235,7 @@ function ReadingRoom() {
     setView: applyView,
     currentView: () => view,
     renderBackend: () => backend,
+    runExclusive: (fn) => exclusiveRef.current(fn),
   };
 
   return (
@@ -207,16 +259,13 @@ function ReadingRoom() {
           <button type="button" className="btn btn-primary" disabled={loading} onClick={() => void loadDemo()}>
             {loading ? "Loading…" : "Load demo"}
           </button>
-          <label className="btn btn-ghost">
+          <label className={`btn btn-ghost${loading ? " is-disabled" : ""}`}>
             {studyName ? "Open file" : "Open NIfTI"}
             <input
               type="file"
               accept=".nii,.nii.gz,.gz"
               disabled={loading}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void openFile(file);
-              }}
+              onChange={(event) => pickFile(event, openFile)}
             />
           </label>
         </div>
@@ -226,7 +275,7 @@ function ReadingRoom() {
         <aside className="rail">
           <section className="rail-block">
             <h2 className="rail-label">Study</h2>
-            {studyName && studyMeta ? (
+            {studyName && studyMeta && !loading ? (
               <div className="study-card">
                 <p className="study-name">{studyName}</p>
                 <dl className="study-stats">
@@ -246,16 +295,19 @@ function ReadingRoom() {
               </div>
             ) : (
               <p className="study-hint">
-                Load the demo sample or open a local NIfTI. Stays in this tab.
+                {loading
+                  ? "Decoding volume…"
+                  : "Load the demo sample or open a local NIfTI. Opening a file replaces the current study. Stays in this tab."}
               </p>
             )}
+            {loadError ? <p className="load-error">{loadError}</p> : null}
           </section>
 
           <section className="rail-block">
             <h2 className="rail-label">Regions · {regions.length}</h2>
             {regions.length === 0 ? (
               <p className="empty-rail">
-                {studyName ? "No regions yet." : "Load a study to begin."}
+                {studyName && !loading ? "No regions yet." : "Load a study to begin."}
               </p>
             ) : (
               <ul className="regions">
@@ -285,8 +337,8 @@ function ReadingRoom() {
           </p>
         </aside>
 
-        <main className={studyName ? "stage has-study" : "stage"} aria-label="Volume viewport">
-          {studyName ? (
+        <main className={studyName && !loading ? "stage has-study" : "stage"} aria-label="Volume viewport">
+          {studyName && !loading ? (
             <div className="stage-toolbar" role="toolbar" aria-label="View mode">
               <div className="seg">
                 {VIEW_OPTIONS.map((option) => (
@@ -304,7 +356,7 @@ function ReadingRoom() {
             </div>
           ) : null}
 
-          <canvas ref={canvasRef} aria-hidden={!studyName} />
+          <canvas ref={canvasRef} aria-hidden={!studyName || loading} />
 
           {loading ? (
             <div className="loading-veil" role="status">
@@ -326,10 +378,7 @@ function ReadingRoom() {
                   <input
                     type="file"
                     accept=".nii,.nii.gz,.gz"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void openFile(file);
-                    }}
+                    onChange={(event) => pickFile(event, openFile)}
                   />
                 </label>
               </div>
@@ -339,13 +388,31 @@ function ReadingRoom() {
       </div>
 
       <FaradayTools controller={controller} />
-      <ConfirmDialog />
+      <ConfirmDialog studyEpoch={studyEpoch} />
     </div>
   );
 }
 
-function ConfirmDialog() {
+function ConfirmDialog({ studyEpoch }: { studyEpoch: number }) {
   const { pending } = experimental_useWebMCPConfirm();
+  const epochWhenShown = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (pending) epochWhenShown.current = studyEpoch;
+    else epochWhenShown.current = null;
+  }, [pending, studyEpoch]);
+
+  // Opening another file invalidates any in-flight HITL export.
+  useEffect(() => {
+    if (
+      pending &&
+      epochWhenShown.current !== null &&
+      epochWhenShown.current !== studyEpoch
+    ) {
+      pending.reject();
+    }
+  }, [studyEpoch, pending]);
+
   if (!pending) return null;
 
   return (
