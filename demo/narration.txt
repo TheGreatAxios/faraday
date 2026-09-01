@@ -1,0 +1,13 @@
+This is Faraday — an agent-native reading room for medical imaging.
+
+Every MRI suite is a Faraday cage. Same idea for data: the scan never leaves the tab.
+
+I load a de-identified brain MRI. WebGPU renders it. WebMCP exposes tools to the agent.
+
+The agent calls describe study. A histogram runs on-device. Voxels stay in the browser.
+
+It finds bright regions, paints an overlay, and focuses the largest one so I can see it.
+
+Export findings needs my approval — only measurements leave the page, never the image itself.
+
+Faraday. Built for the WebMCP Challenge. Research and education only — not for diagnosis.

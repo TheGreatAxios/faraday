@@ -32,10 +32,25 @@ Agent: `export_findings` with a short note. Show confirm dialog → Approve → 
 
 End on the brand + badges.
 
-## Checklist before recording
+## Automated silent capture (optional)
+
+```bash
+bun run record-demo   # writes demo/faraday-demo.webm against the live URL
+# Narration: say -v Samantha -f demo/narration.txt -o demo/narration.aiff
+# Mux: ffmpeg -y -i demo/faraday-demo.webm -i demo/narration.aiff \
+#   -filter_complex "[0:v]tpad=stop_mode=clone:stop_duration=20[v]" \
+#   -map "[v]" -map 1:a -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest \
+#   -movflags +faststart demo/faraday-demo.mp4
+```
+
+A narrated MP4 may already exist at `demo/faraday-demo.mp4` (gitignored). Upload it to YouTube as **public**, then paste the link into Devpost.
+
+## Checklist before recording / upload
 
 - [ ] Hard refresh so demo sample is cached
 - [ ] WebMCP available (native or polyfill badge live)
 - [ ] WebGPU badge preferred (WebGL2 still OK)
-- [ ] Mic on; no copyrighted music
+- [ ] Mic on if recording live; or use the narrated MP4
 - [ ] Under 3:00
+- [ ] YouTube visibility: Public
+- [ ] No copyrighted music
