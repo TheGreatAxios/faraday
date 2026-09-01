@@ -38,6 +38,11 @@ export interface FindRegionsOptions {
   max: number;
   /** Discard components smaller than this many voxels. Defaults to 1. */
   minVoxels?: number;
+  /**
+   * Optional output: per-voxel region id (1..N) after ranking, 0 = background.
+   * Used to paint a drawing overlay so the human sees what the agent found.
+   */
+  labelOut?: Uint8Array;
 }
 
 const NEIGHBOURS: ReadonlyArray<readonly [number, number, number]> = [
@@ -79,6 +84,7 @@ export function findRegions(
   const labels = new Int32Array(expected);
   const stack: number[] = [];
   const regions: Region[] = [];
+  let nextId = 1;
 
   // Every index is bounds-checked before it reaches here, so the read is safe.
   const valueAt = (index: number) => data[index] as number;
@@ -90,7 +96,8 @@ export function findRegions(
   for (let seed = 0; seed < expected; seed += 1) {
     if (labels[seed] !== 0 || !inWindow(seed)) continue;
 
-    const id = regions.length + 1;
+    const id = nextId;
+    nextId += 1;
     labels[seed] = id;
     stack.push(seed);
 
@@ -136,7 +143,10 @@ export function findRegions(
       }
     }
 
-    if (voxelCount < minVoxels) continue;
+    if (voxelCount < minVoxels) {
+      // Leave labels[…] = id for now; remap below drops discarded components to 0.
+      continue;
+    }
 
     const boundingBoxMm: [number, number, number] = [
       (maxX - minX + 1) * sx,
@@ -157,5 +167,20 @@ export function findRegions(
   }
 
   regions.sort((a, b) => b.voxelCount - a.voxelCount);
-  return regions.map((region, rank) => ({ ...region, id: rank + 1 }));
+  const ranked = regions.map((region, rank) => ({ ...region, id: rank + 1 }));
+
+  if (options.labelOut) {
+    if (options.labelOut.length !== expected) {
+      throw new Error(`labelOut has ${options.labelOut.length} entries, dims imply ${expected}`);
+    }
+    const remap = new Int32Array(nextId);
+    for (let i = 0; i < regions.length; i += 1) {
+      remap[regions[i]!.id] = ranked[i]!.id;
+    }
+    for (let i = 0; i < expected; i += 1) {
+      options.labelOut[i] = remap[labels[i]!] ?? 0;
+    }
+  }
+
+  return ranked;
 }

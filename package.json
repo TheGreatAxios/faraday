@@ -14,20 +14,17 @@
   },
   "dependencies": {
     "@niivue/niivue": "next",
-    "@thegreataxios/webmcp-core": "file:../webmcp/packages/core",
-    "@thegreataxios/webmcp-react": "file:../webmcp/packages/react",
+    "@thegreataxios/webmcp-core": "file:./vendor/webmcp-core",
+    "@thegreataxios/webmcp-react": "file:./vendor/webmcp-react",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
-  },
-  "//overrides": "Local file: links until @thegreataxios/webmcp-* are published. The override rewrites the react package's internal workspace:* pin, which cannot resolve outside its monorepo.",
-  "overrides": {
-    "@thegreataxios/webmcp-core": "file:../webmcp/packages/core"
   },
   "devDependencies": {
     "@types/bun": "^1.4.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "@webgpu/types": "^0.1.72",
     "typescript": "^5.9.3",
     "vite": "^7.0.0"
   }

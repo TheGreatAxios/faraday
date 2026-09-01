@@ -78,6 +78,12 @@ body {
   color: var(--muted);
 }
 
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -119,6 +125,12 @@ body {
 .regions .meta {
   color: var(--muted);
   font-size: 12px;
+}
+
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 button,

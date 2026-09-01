@@ -1,9 +1,7 @@
 import { NiiVue, SLICE_TYPE } from "@niivue/niivue";
 import {
   WebMCPProvider,
-  // JSX treats a lowercase-initial tag as an intrinsic HTML element, so the
-  // experimental_* exports have to be aliased to uppercase to be usable here.
-  experimental_WebMCPConfirmProvider as WebMCPConfirmProvider,
+  ExperimentalWebMCPConfirmProvider,
   experimental_useWebMCPConfirm,
   useWebMCP,
 } from "@thegreataxios/webmcp-react";
@@ -12,6 +10,8 @@ import type { Region } from "./regions";
 import { FaradayTools, type ReadingRoomController, type ViewName } from "./tools";
 import { readVolume, type NiiVueLike, type VolumeSnapshot } from "./viewer";
 
+type RenderBackend = "webgpu" | "webgl2" | "unknown";
+
 const SLICE_TYPES: Record<ViewName, number> = {
   axial: SLICE_TYPE.AXIAL,
   coronal: SLICE_TYPE.CORONAL,
@@ -19,6 +19,10 @@ const SLICE_TYPES: Record<ViewName, number> = {
   multiplanar: SLICE_TYPE.MULTIPLANAR,
   render: SLICE_TYPE.RENDER,
 };
+
+function preferBackend(): "webgpu" | "webgl2" {
+  return typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "webgl2";
+}
 
 function ReadingRoom() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,47 +34,112 @@ function ReadingRoom() {
   const [regions, setRegions] = useState<Region[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
   const [view, setView] = useState<ViewName>("multiplanar");
+  const [backend, setBackend] = useState<RenderBackend>("unknown");
   const { available, native } = useWebMCP();
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const nv = new NiiVue();
+    const preferred = preferBackend();
+    // Default @niivue/niivue build ships both backends and falls through
+    // webgpu → webgl2. We ask for WebGPU when the browser has it so the
+    // session badge tells the truth about what's driving the canvas.
+    const nv = new NiiVue({ backend: preferred });
     nvRef.current = nv;
-    void nv.attachToCanvas(canvas);
+
+    void (async () => {
+      try {
+        await nv.attachToCanvas(canvas);
+      } catch (error) {
+        if (preferred === "webgpu") {
+          // Explicit WebGPU request can throw on a half-broken adapter; retry
+          // on WebGL2 so a judge with a quirky GPU still gets a working demo.
+          const fallback = new NiiVue({ backend: "webgl2" });
+          nvRef.current = fallback;
+          await fallback.attachToCanvas(canvas);
+          setBackend("webgl2");
+          console.warn("WebGPU attach failed; fell back to WebGL2", error);
+          return;
+        }
+        throw error;
+      }
+      setBackend((nv.backend as RenderBackend | undefined) ?? preferred);
+    })();
 
     return () => {
       nvRef.current = null;
     };
   }, []);
 
-  const openFile = useCallback(async (file: File) => {
+  const paintOverlay = useCallback((labels: Uint8Array | null) => {
     const nv = nvRef.current;
     if (!nv) return;
+    if (!labels) {
+      nv.drawIsEnabled = false;
+      nv.drawScene();
+      return;
+    }
+    nv.createEmptyDrawing();
+    const drawing = nv.drawingVolume as { img?: Uint8Array } | null;
+    if (!drawing?.img || drawing.img.length !== labels.length) {
+      // Drawing volume layout can differ from RAS raw length on some loads;
+      // skip the overlay rather than corrupt the canvas.
+      return;
+    }
+    drawing.img.set(labels);
+    nv.drawOpacity = 0.55;
+    nv.drawIsEnabled = true;
+    nv.refreshDrawing();
+    nv.drawScene();
+  }, []);
 
-    // A blob URL keeps the volume in this tab; nothing is uploaded. niivue
-    // needs the real filename so it can pick the right decoder.
-    const url = URL.createObjectURL(file);
-    try {
-      await nv.loadVolumes([{ url, name: file.name }]);
+  const openUrl = useCallback(
+    async (url: string, name: string) => {
+      const nv = nvRef.current;
+      if (!nv) return;
+      await nv.loadVolumes([{ url, name }]);
       snapshotRef.current = readVolume(nv as unknown as NiiVueLike);
       regionsRef.current = [];
       setRegions([]);
       setFocused(null);
-      setStudyName(snapshotRef.current?.name ?? file.name);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }, []);
+      paintOverlay(null);
+      setStudyName(snapshotRef.current?.name ?? name);
+    },
+    [paintOverlay],
+  );
+
+  const openFile = useCallback(
+    async (file: File) => {
+      // Blob URL keeps the volume in this tab; nothing is uploaded. niivue
+      // needs the real filename so it can pick the right decoder.
+      const url = URL.createObjectURL(file);
+      try {
+        await openUrl(url, file.name);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    },
+    [openUrl],
+  );
+
+  const loadDemo = useCallback(async () => {
+    // Bundled public sample (UPENN-GBM T1-Gd, CC BY 4.0) so judges can demo
+    // without downloading HuggingFace data first.
+    await openUrl(
+      "/samples/UPENN-GBM-00001_11_T1GD.nii.gz",
+      "UPENN-GBM-00001_11_T1GD.nii.gz",
+    );
+  }, [openUrl]);
 
   const controller: ReadingRoomController = {
     snapshot: () => snapshotRef.current,
     regions: () => regionsRef.current,
-    setRegions: (next) => {
+    setRegions: (next, labels) => {
       regionsRef.current = next;
       setRegions(next);
       setFocused(null);
+      paintOverlay(labels ?? null);
     },
     focusVoxel: (voxel) => {
       const nv = nvRef.current;
@@ -89,6 +158,7 @@ function ReadingRoom() {
       setView(next);
     },
     currentView: () => view,
+    renderBackend: () => backend,
   };
 
   return (
@@ -101,25 +171,37 @@ function ReadingRoom() {
 
         <div className="section">
           <h2>Session</h2>
-          <span className={available ? "pill live" : "pill"}>
-            {available ? (native ? "WebMCP (native)" : "WebMCP (polyfill)") : "WebMCP unavailable"}
-          </span>
+          <div className="pills">
+            <span className={available ? "pill live" : "pill"}>
+              {available ? (native ? "WebMCP (native)" : "WebMCP (polyfill)") : "WebMCP unavailable"}
+            </span>
+            <span className={backend === "webgpu" ? "pill live" : "pill"}>
+              {backend === "unknown" ? "GPU…" : backend === "webgpu" ? "WebGPU" : "WebGL2"}
+            </span>
+          </div>
         </div>
 
         <div className="section">
           <h2>Study</h2>
-          <label className="file">
-            {studyName ? "Open another volume" : "Open a NIfTI volume"}
-            <input
-              type="file"
-              accept=".nii,.nii.gz,.gz"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void openFile(file);
-              }}
-            />
-          </label>
-          {studyName ? <p className="meta">{studyName}</p> : null}
+          <div className="actions-row">
+            <button type="button" onClick={() => void loadDemo()}>
+              Load demo CT/MR
+            </button>
+            <label className="file">
+              {studyName ? "Open another" : "Open NIfTI"}
+              <input
+                type="file"
+                accept=".nii,.nii.gz,.gz"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void openFile(file);
+                }}
+              />
+            </label>
+          </div>
+          {studyName ? <p className="meta">{studyName}</p> : (
+            <p className="meta">Demo is UPENN-GBM T1-Gd (CC BY 4.0). Stays in this tab.</p>
+          )}
         </div>
 
         <div className="section">
@@ -173,8 +255,12 @@ function ConfirmDialog() {
         <p>The agent is asking to run this. Measurements leave the page; voxel data does not.</p>
         <pre>{JSON.stringify(pending.args, null, 2)}</pre>
         <div className="actions">
-          <button onClick={() => pending.reject()}>Decline</button>
-          <button onClick={() => pending.approve()}>Approve</button>
+          <button type="button" onClick={() => pending.reject()}>
+            Decline
+          </button>
+          <button type="button" onClick={() => pending.approve()}>
+            Approve
+          </button>
         </div>
       </div>
     </div>
@@ -184,9 +270,9 @@ function ConfirmDialog() {
 export function App() {
   return (
     <WebMCPProvider name="faraday" version="0.1.0">
-      <WebMCPConfirmProvider>
+      <ExperimentalWebMCPConfirmProvider>
         <ReadingRoom />
-      </WebMCPConfirmProvider>
+      </ExperimentalWebMCPConfirmProvider>
     </WebMCPProvider>
   );
 }

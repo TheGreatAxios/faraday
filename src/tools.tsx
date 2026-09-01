@@ -1,11 +1,10 @@
 import {
   WebMCPTool,
-  // Aliased to uppercase: JSX resolves a lowercase-initial tag as an intrinsic
-  // HTML element rather than a component.
-  experimental_WebMCPGuardedTool as WebMCPGuardedTool,
-  experimental_WebMCPJourney as WebMCPJourney,
+  ExperimentalWebMCPGuardedTool,
+  ExperimentalWebMCPJourney,
 } from "@thegreataxios/webmcp-react";
 import type { CallToolResult } from "@thegreataxios/webmcp-core";
+import { histogramWebGpu, suggestBrightWindow } from "./histogram";
 import { findRegions, type Region } from "./regions";
 import { voxelToMm, type VolumeSnapshot } from "./viewer";
 
@@ -14,10 +13,11 @@ export type ViewName = "axial" | "coronal" | "sagittal" | "multiplanar" | "rende
 export interface ReadingRoomController {
   snapshot(): VolumeSnapshot | null;
   regions(): Region[];
-  setRegions(regions: Region[]): void;
+  setRegions(regions: Region[], labels?: Uint8Array): void;
   focusVoxel(voxel: [number, number, number]): void;
   setView(view: ViewName): void;
   currentView(): ViewName;
+  renderBackend(): "webgpu" | "webgl2" | "unknown";
 }
 
 const VIEWS: ViewName[] = ["axial", "coronal", "sagittal", "multiplanar", "render"];
@@ -69,32 +69,37 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
         title="Describe the loaded study"
         description={
           "Report the loaded volume's grid size, voxel spacing in millimetres, intensity range, " +
-          "and which view the user is currently looking at. Call this first to orient yourself."
+          "suggested intensity window for bright-region search, render backend, and current view. " +
+          "Call this first to orient yourself. The intensity histogram is computed on-device " +
+          "(WebGPU when available); voxel data never leaves the tab."
         }
         annotations={{ readOnlyHint: true }}
-        handler={() => {
+        handler={async () => {
           const snapshot = requireVolume();
           if (typeof snapshot === "string") return fail(snapshot);
 
           const { dims, spacing } = snapshot.meta;
-          let min = Infinity;
-          let max = -Infinity;
-          for (const value of snapshot.data) {
-            if (value < min) min = value;
-            if (value > max) max = value;
-          }
+          const hist = await histogramWebGpu(snapshot.data);
+          const hint = suggestBrightWindow(hist);
+          const backend = controller.renderBackend();
 
           return ok(
-            `Loaded "${snapshot.name}": ${dims.join(" x ")} voxels at ` +
-              `${spacing.map((s) => round(s, 2)).join(" x ")} mm. ` +
-              `Intensity range ${round(min)} to ${round(max)}. ` +
-              `Current view: ${controller.currentView()}.`,
+            `Loaded "${snapshot.name}": ${dims.join(" × ")} voxels at ` +
+              `${spacing.map((s) => round(s, 2)).join(" × ")} mm. ` +
+              `Intensity ${round(hist.min)} → ${round(hist.max)} ` +
+              `(histogram via ${hist.backend}). ` +
+              `Suggested bright window for find_regions: ${hint.min} → ${hint.max} ` +
+              `(${hint.reason}). ` +
+              `Viewer: ${controller.currentView()} on ${backend}.`,
             {
               name: snapshot.name,
               dims,
               spacing_mm: spacing.map((s) => round(s, 3)),
-              intensity_min: round(min),
-              intensity_max: round(max),
+              intensity_min: round(hist.min),
+              intensity_max: round(hist.max),
+              suggested_window: { min: hint.min, max: hint.max, reason: hint.reason },
+              histogram_backend: hist.backend,
+              render_backend: backend,
               view: controller.currentView(),
             },
           );
@@ -154,13 +159,15 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
           const { spacing } = snapshot.meta;
           const mlPerVoxel = (spacing[0] * spacing[1] * spacing[2]) / 1000;
           const minVoxels = Math.max(1, Math.ceil(minVolumeMl / mlPerVoxel));
+          const labelOut = new Uint8Array(snapshot.data.length);
 
           const found = findRegions(snapshot.data, snapshot.meta, {
             min,
             max,
             minVoxels,
+            labelOut,
           });
-          controller.setRegions(found);
+          controller.setRegions(found, labelOut);
 
           if (found.length === 0) {
             return ok(
@@ -252,18 +259,18 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
         }}
       />
 
-      <WebMCPJourney
+      <ExperimentalWebMCPJourney
         name="review"
         description="Orient in the study and locate regions of interest."
         tools={["describe_study", "find_regions", "focus_region", "set_view"]}
       />
 
-      <WebMCPJourney
+      <ExperimentalWebMCPJourney
         name="report"
         description="Write measured findings out of the shielded session."
         tools={["export_findings"]}
       >
-        <WebMCPGuardedTool
+        <ExperimentalWebMCPGuardedTool
           name="export_findings"
           description={
             "Export the measurements for the regions currently found as a JSON summary the user can " +
@@ -275,7 +282,7 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
               note: { type: "string", description: "Optional note to attach to the export." },
             },
           }}
-          handler={(args) => {
+          handler={(args: Record<string, unknown>) => {
             const snapshot = requireVolume();
             if (typeof snapshot === "string") return fail(snapshot);
 
@@ -295,7 +302,7 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
             );
           }}
         />
-      </WebMCPJourney>
+      </ExperimentalWebMCPJourney>
     </>
   );
 }

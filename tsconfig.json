@@ -14,7 +14,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["bun", "vite/client"]
+    "types": ["bun", "vite/client", "@webgpu/types"]
   },
   "include": ["src"]
 }

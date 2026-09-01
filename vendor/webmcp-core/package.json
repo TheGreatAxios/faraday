@@ -1,0 +1,19 @@
+{
+  "name": "@thegreataxios/webmcp-core",
+  "version": "0.1.0",
+  "description": "WebMCP core: spec-aligned registry, polyfill, and custom elements for document.modelContext",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "LICENSE"],
+  "sideEffects": false,
+  "license": "MIT"
+}
