@@ -12,6 +12,7 @@ Use the Devpost Hackathons plugin in Codex for register/submit. Paste pack is `S
 | Repo (MIT, public) | https://github.com/TheGreatAxios/faraday |
 | Vendored deps (no private `file:../`) | `vendor/webmcp-*` |
 | Tools | `describe_study`, `find_regions`, `focus_region`, `set_view`, `export_findings` (HITL) |
+| Multi-file / agents | Load epoch + exclusive tool queue; live `e2e-multifile` on Pages |
 | Journeys | `review`, `report` |
 | Demo sample | bundled UPENN-GBM T1-Gd |
 | Narrated demo MP4 (~30s) | `demo/faraday-demo.mp4` · [Pages stream](https://thegreataxios.github.io/faraday/faraday-demo.mp4) · [release](https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1) |

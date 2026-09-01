@@ -20,6 +20,8 @@ document.modelContext.registerTool(descriptor, { signal, exposedTo })
 
 Journeys: `review` (orient + locate) and `report` (export). Both are active in the reading room.
 
+Opening a NIfTI **replaces** the current study (one volume per tab). A load epoch drops stale tool results; mutating tools run through a one-at-a-time queue so concurrent agents don’t interleave on the shared viewer.
+
 ## Equivalent imperative shape
 
 What judges see conceptually:

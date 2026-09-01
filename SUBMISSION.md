@@ -20,13 +20,14 @@ Medical volumes live as GPU textures. DOM automation sees an empty canvas. Serve
 
 ## Better UX: what people and agents do together
 
-- **Human:** loads a study (one-click demo), switches Axial/Coronal/Sagittal/MPR/3D, watches overlays update live, approves export
-- **Agent:** `describe_study` → on-device WebGPU histogram → `find_regions` → `focus_region` → `set_view` → `export_findings`
+- **Human:** opens a local NIfTI or the one-click demo, switches Axial/Coronal/Sagittal/MPR/3D, watches overlays update live, approves export. Opening another file **replaces** the study (one volume per tab).
+- **Agent:** `describe_study` → on-device histogram (WebGPU with CPU fallback) → `find_regions` → `focus_region` → `set_view` → `export_findings`
+- **Multiple files / agents:** study load epochs drop stale tool results; mutating tools serialize so concurrent agent calls don’t interleave; pending HITL export cancels if the study changes mid-approve
 - **Impossible before:** reliable agent actuation on a canvas-only medical viewer without uploading the scan
 
 ## How we implemented WebMCP
 
-`document.modelContext.registerTool` via vendored `@thegreataxios/webmcp-react` (`WebMCPTool`, `ExperimentalWebMCPJourney`, `ExperimentalWebMCPGuardedTool`). Polyfill installs when native WebMCP is absent. Intensity histogram uses WebGPU compute with CPU fallback. Region labels paint into NiiVue’s drawing overlay.
+`document.modelContext.registerTool` via vendored `@thegreataxios/webmcp-react` (`WebMCPTool`, `ExperimentalWebMCPJourney`, `ExperimentalWebMCPGuardedTool`). Polyfill installs when native WebMCP is absent. Intensity histogram uses WebGPU compute with a timed CPU fallback. Region labels paint into NiiVue’s drawing overlay. Study switches bump a load epoch so in-flight agent work cannot paint the wrong volume.
 
 ## Submission links
 
