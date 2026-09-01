@@ -20,6 +20,14 @@ const SLICE_TYPES: Record<ViewName, number> = {
   render: SLICE_TYPE.RENDER,
 };
 
+const VIEW_OPTIONS: { id: ViewName; label: string }[] = [
+  { id: "axial", label: "Axial" },
+  { id: "coronal", label: "Coronal" },
+  { id: "sagittal", label: "Sagittal" },
+  { id: "multiplanar", label: "MPR" },
+  { id: "render", label: "3D" },
+];
+
 function preferBackend(): "webgpu" | "webgl2" {
   return typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "webgl2";
 }
@@ -31,6 +39,7 @@ function ReadingRoom() {
   const regionsRef = useRef<Region[]>([]);
 
   const [studyName, setStudyName] = useState<string | null>(null);
+  const [studyMeta, setStudyMeta] = useState<{ dims: number[]; spacing: number[] } | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
   const [view, setView] = useState<ViewName>("multiplanar");
@@ -46,7 +55,15 @@ function ReadingRoom() {
     // Default @niivue/niivue build ships both backends and falls through
     // webgpu → webgl2. We ask for WebGPU when the browser has it so the
     // session badge tells the truth about what's driving the canvas.
-    const nv = new NiiVue({ backend: preferred });
+    const opts = {
+      backend: preferred,
+      // Keep the empty canvas quiet; our React empty state owns first paint.
+      placeholderText: "",
+      crosshairWidth: 0.8,
+      crosshairColor: [0.77, 0.65, 0.45, 0.85],
+      backColor: [0.02, 0.02, 0.02, 1],
+    } as ConstructorParameters<typeof NiiVue>[0];
+    const nv = new NiiVue(opts);
     nvRef.current = nv;
 
     void (async () => {
@@ -56,7 +73,7 @@ function ReadingRoom() {
         if (preferred === "webgpu") {
           // Explicit WebGPU request can throw on a half-broken adapter; retry
           // on WebGL2 so a judge with a quirky GPU still gets a working demo.
-          const fallback = new NiiVue({ backend: "webgl2" });
+          const fallback = new NiiVue({ ...opts, backend: "webgl2" });
           nvRef.current = fallback;
           await fallback.attachToCanvas(canvas);
           setBackend("webgl2");
@@ -107,7 +124,9 @@ function ReadingRoom() {
         setRegions([]);
         setFocused(null);
         paintOverlay(null);
-        setStudyName(snapshotRef.current?.name ?? name);
+        const snap = snapshotRef.current;
+        setStudyName(snap?.name ?? name);
+        setStudyMeta(snap ? { dims: snap.meta.dims, spacing: snap.meta.spacing } : null);
       } finally {
         setLoading(false);
       }
@@ -138,6 +157,21 @@ function ReadingRoom() {
     );
   }, [openUrl]);
 
+  const applyView = useCallback((next: ViewName) => {
+    const nv = nvRef.current;
+    if (nv) nv.sliceType = SLICE_TYPES[next];
+    setView(next);
+  }, []);
+
+  const focusRegion = useCallback((region: Region) => {
+    const nv = nvRef.current;
+    if (!nv) return;
+    const voxel = region.centroid.map((c) => Math.round(c)) as [number, number, number];
+    nv.crosshairPos = nv.vox2frac(voxel) as unknown as typeof nv.crosshairPos;
+    nv.drawScene();
+    setFocused(region.id);
+  }, []);
+
   const controller: ReadingRoomController = {
     snapshot: () => snapshotRef.current,
     regions: () => regionsRef.current,
@@ -158,92 +192,183 @@ function ReadingRoom() {
       );
       setFocused(match?.id ?? null);
     },
-    setView: (next) => {
-      const nv = nvRef.current;
-      if (nv) nv.sliceType = SLICE_TYPES[next];
-      setView(next);
-    },
+    setView: applyView,
     currentView: () => view,
     renderBackend: () => backend,
   };
 
+  const webmcpLabel = !available
+    ? "WebMCP offline"
+    : native
+      ? "WebMCP native"
+      : "WebMCP polyfill";
+  const gpuLabel = backend === "unknown" ? "GPU…" : backend === "webgpu" ? "WebGPU" : "WebGL2";
+
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="brand">
-          <h1>Faraday</h1>
-          <p>The agent reads the scan. The scan never leaves the tab.</p>
-        </div>
-
-        <div className="section">
-          <h2>Session</h2>
-          <div className="pills">
-            <span className={available ? "pill live" : "pill"}>
-              {available ? (native ? "WebMCP (native)" : "WebMCP (polyfill)") : "WebMCP unavailable"}
-            </span>
-            <span className={backend === "webgpu" ? "pill live" : "pill"}>
-              {backend === "unknown" ? "GPU…" : backend === "webgpu" ? "WebGPU" : "WebGL2"}
-            </span>
+      <header className="topbar">
+        <div className="brand-lockup">
+          <span className="brand-glyph" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+              <rect x="1.25" y="1.25" width="19.5" height="19.5" rx="4" stroke="currentColor" strokeWidth="1.4" />
+              <rect x="5.5" y="5.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.2" opacity="0.55" />
+              <circle cx="11" cy="11" r="1.6" fill="currentColor" />
+            </svg>
+          </span>
+          <div className="brand-text">
+            <h1 className="brand-mark">Faraday</h1>
+            <p className="brand-tag">The scan stays in the cage.</p>
           </div>
         </div>
-
-        <div className="section">
-          <h2>Study</h2>
-          <div className="actions-row">
-            <button type="button" disabled={loading} onClick={() => void loadDemo()}>
-              {loading ? "Loading volume…" : "Load demo CT/MR"}
-            </button>
-            <label className="file">
-              {studyName ? "Open another" : "Open NIfTI"}
-              <input
-                type="file"
-                accept=".nii,.nii.gz,.gz"
-                disabled={loading}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void openFile(file);
-                }}
-              />
-            </label>
-          </div>
-          {studyName ? <p className="meta">{studyName}</p> : (
-            <p className="meta">Demo is UPENN-GBM T1-Gd (CC BY 4.0). Stays in this tab.</p>
-          )}
+        <div className="topbar-spacer" />
+        <div className="session" aria-label="Session status">
+          <span className={available ? "status on" : "status"}>{webmcpLabel}</span>
+          <span className={backend !== "unknown" ? "status gpu on" : "status gpu"}>{gpuLabel}</span>
         </div>
+        <div className="top-actions">
+          <button type="button" className="btn btn-primary" disabled={loading} onClick={() => void loadDemo()}>
+            {loading ? "Loading…" : "Load demo"}
+          </button>
+          <label className="btn btn-ghost">
+            {studyName ? "Open file" : "Open NIfTI"}
+            <input
+              type="file"
+              accept=".nii,.nii.gz,.gz"
+              disabled={loading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void openFile(file);
+              }}
+            />
+          </label>
+        </div>
+      </header>
 
-        <div className="section">
-          <h2>Regions ({regions.length})</h2>
-          {regions.length === 0 ? (
-            <p className="meta">Ask the agent to find regions by intensity.</p>
-          ) : (
-            <ul className="regions">
-              {regions.slice(0, 8).map((region) => (
-                <li key={region.id} className={focused === region.id ? "focused" : undefined}>
-                  <strong>#{region.id}</strong> {region.volumeMl.toFixed(2)} mL
-                  <div className="meta">
-                    extent {region.maxExtentMm.toFixed(1)} mm · mean{" "}
-                    {region.meanIntensity.toFixed(0)}
+      <div className="workspace">
+        <aside className="rail">
+          <section className="rail-block">
+            <h2 className="rail-label">Study</h2>
+            {studyName && studyMeta ? (
+              <div className="study-card">
+                <p className="study-name">{studyName}</p>
+                <dl className="study-stats">
+                  <div>
+                    <dt>Grid</dt>
+                    <dd>{studyMeta.dims.join(" × ")}</dd>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                  <div>
+                    <dt>Spacing</dt>
+                    <dd>{studyMeta.spacing.map((s) => s.toFixed(2)).join(" × ")} mm</dd>
+                  </div>
+                  <div>
+                    <dt>View</dt>
+                    <dd>{view}</dd>
+                  </div>
+                </dl>
+              </div>
+            ) : (
+              <p className="study-hint">
+                Load the bundled UPENN-GBM T1-Gd sample, or open a local NIfTI. Decoded in this tab —
+                never uploaded.
+              </p>
+            )}
+          </section>
 
-        <p className="disclaimer">
-          Research and education only. Not a medical device and not for diagnostic use.
-        </p>
-      </aside>
+          <section className="rail-block">
+            <h2 className="rail-label">Regions · {regions.length}</h2>
+            {regions.length === 0 ? (
+              <p className="empty-rail">
+                {studyName
+                  ? "No regions yet. Have the agent call find_regions — results land here and paint the volume."
+                  : "Load a study, then ask the agent to find regions by intensity."}
+              </p>
+            ) : (
+              <ul className="regions">
+                {regions.slice(0, 10).map((region) => (
+                  <li key={region.id}>
+                    <button
+                      type="button"
+                      className={focused === region.id ? "region focused" : "region"}
+                      onClick={() => focusRegion(region)}
+                    >
+                      <div className="region-top">
+                        <span className="region-id">Region {region.id}</span>
+                        <span className="region-vol">{region.volumeMl.toFixed(2)} mL</span>
+                      </div>
+                      <div className="region-meta">
+                        {region.maxExtentMm.toFixed(1)} mm · μ {region.meanIntensity.toFixed(0)}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-      <main className="stage">
-        <canvas ref={canvasRef} />
-        {studyName ? null : (
-          <div className="empty">
-            <strong>No volume loaded</strong>
-            <span>Open a .nii or .nii.gz file. It is decoded in this tab and never uploaded.</span>
-          </div>
-        )}
-      </main>
+          <p className="disclaimer">
+            Research and education only. Not a medical device. Not for diagnostic use.
+          </p>
+        </aside>
+
+        <main className={studyName ? "stage has-study" : "stage"} aria-label="Volume viewport">
+          {studyName ? (
+            <div className="stage-toolbar" role="toolbar" aria-label="View mode">
+              <div className="seg">
+                {VIEW_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={view === option.id}
+                    disabled={loading}
+                    onClick={() => applyView(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <canvas ref={canvasRef} aria-hidden={!studyName} />
+
+          {loading ? (
+            <div className="loading-veil" role="status">
+              Decoding volume
+            </div>
+          ) : null}
+
+          {studyName ? (
+            <p className="stage-foot">Measurements leave. Voxels do not.</p>
+          ) : null}
+
+          {!studyName && !loading ? (
+            <div className="empty">
+              <p className="empty-kicker">Reading room</p>
+              <h2>Open a study. Keep the voxels here.</h2>
+              <p>
+                Faraday exposes measurements to the agent through WebMCP. The volume never leaves this
+                browser tab.
+              </p>
+              <div className="empty-actions">
+                <button type="button" className="btn btn-primary" onClick={() => void loadDemo()}>
+                  Load demo CT/MR
+                </button>
+                <label className="btn btn-ghost">
+                  Open NIfTI
+                  <input
+                    type="file"
+                    accept=".nii,.nii.gz,.gz"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void openFile(file);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          ) : null}
+        </main>
+      </div>
 
       <FaradayTools controller={controller} />
       <ConfirmDialog />
@@ -256,16 +381,16 @@ function ConfirmDialog() {
   if (!pending) return null;
 
   return (
-    <div className="confirm">
-      <div className="card">
-        <h2>Approve “{pending.tool}”?</h2>
-        <p>The agent is asking to run this. Measurements leave the page; voxel data does not.</p>
+    <div className="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div className="sheet">
+        <h2 id="confirm-title">Approve “{pending.tool}”?</h2>
+        <p>The agent wants to run this tool. Measurements may leave the page; voxel data does not.</p>
         <pre>{JSON.stringify(pending.args, null, 2)}</pre>
         <div className="actions">
-          <button type="button" onClick={() => pending.reject()}>
+          <button type="button" className="btn btn-danger" onClick={() => pending.reject()}>
             Decline
           </button>
-          <button type="button" onClick={() => pending.approve()}>
+          <button type="button" className="btn btn-approve" onClick={() => pending.approve()}>
             Approve
           </button>
         </div>
