@@ -3,7 +3,6 @@ import {
   WebMCPProvider,
   ExperimentalWebMCPConfirmProvider,
   experimental_useWebMCPConfirm,
-  useWebMCP,
 } from "@thegreataxios/webmcp-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Region } from "./regions";
@@ -45,19 +44,14 @@ function ReadingRoom() {
   const [view, setView] = useState<ViewName>("multiplanar");
   const [backend, setBackend] = useState<RenderBackend>("unknown");
   const [loading, setLoading] = useState(false);
-  const { available, native } = useWebMCP();
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const preferred = preferBackend();
-    // Default @niivue/niivue build ships both backends and falls through
-    // webgpu → webgl2. We ask for WebGPU when the browser has it so the
-    // session badge tells the truth about what's driving the canvas.
     const opts = {
       backend: preferred,
-      // Keep the empty canvas quiet; our React empty state owns first paint.
       placeholderText: "",
       crosshairWidth: 0.8,
       crosshairColor: [0.77, 0.65, 0.45, 0.85],
@@ -71,8 +65,6 @@ function ReadingRoom() {
         await nv.attachToCanvas(canvas);
       } catch (error) {
         if (preferred === "webgpu") {
-          // Explicit WebGPU request can throw on a half-broken adapter; retry
-          // on WebGL2 so a judge with a quirky GPU still gets a working demo.
           const fallback = new NiiVue({ ...opts, backend: "webgl2" });
           nvRef.current = fallback;
           await fallback.attachToCanvas(canvas);
@@ -101,8 +93,6 @@ function ReadingRoom() {
     nv.createEmptyDrawing();
     const drawing = nv.drawingVolume as { img?: Uint8Array } | null;
     if (!drawing?.img || drawing.img.length !== labels.length) {
-      // Drawing volume layout can differ from RAS raw length on some loads;
-      // skip the overlay rather than corrupt the canvas.
       return;
     }
     drawing.img.set(labels);
@@ -136,8 +126,6 @@ function ReadingRoom() {
 
   const openFile = useCallback(
     async (file: File) => {
-      // Blob URL keeps the volume in this tab; nothing is uploaded. niivue
-      // needs the real filename so it can pick the right decoder.
       const url = URL.createObjectURL(file);
       try {
         await openUrl(url, file.name);
@@ -149,8 +137,6 @@ function ReadingRoom() {
   );
 
   const loadDemo = useCallback(async () => {
-    // Bundled public sample (UPENN-GBM T1-Gd, CC BY 4.0) so judges can demo
-    // without downloading HuggingFace data first.
     await openUrl(
       `${import.meta.env.BASE_URL}samples/UPENN-GBM-00001_11_T1GD.nii.gz`,
       "UPENN-GBM-00001_11_T1GD.nii.gz",
@@ -184,7 +170,6 @@ function ReadingRoom() {
     focusVoxel: (voxel) => {
       const nv = nvRef.current;
       if (!nv) return;
-      // crosshairPos is a gl-matrix vec3; vox2frac hands back a plain triple.
       nv.crosshairPos = nv.vox2frac(voxel) as unknown as typeof nv.crosshairPos;
       nv.drawScene();
       const match = regionsRef.current.find(
@@ -196,13 +181,6 @@ function ReadingRoom() {
     currentView: () => view,
     renderBackend: () => backend,
   };
-
-  const webmcpLabel = !available
-    ? "WebMCP offline"
-    : native
-      ? "WebMCP native"
-      : "WebMCP polyfill";
-  const gpuLabel = backend === "unknown" ? "GPU…" : backend === "webgpu" ? "WebGPU" : "WebGL2";
 
   return (
     <div className="app">
@@ -221,10 +199,6 @@ function ReadingRoom() {
           </div>
         </div>
         <div className="topbar-spacer" />
-        <div className="session" aria-label="Session status">
-          <span className={available ? "status on" : "status"}>{webmcpLabel}</span>
-          <span className={backend !== "unknown" ? "status gpu on" : "status gpu"}>{gpuLabel}</span>
-        </div>
         <div className="top-actions">
           <button type="button" className="btn btn-primary" disabled={loading} onClick={() => void loadDemo()}>
             {loading ? "Loading…" : "Load demo"}
@@ -268,8 +242,7 @@ function ReadingRoom() {
               </div>
             ) : (
               <p className="study-hint">
-                Load the bundled UPENN-GBM T1-Gd sample, or open a local NIfTI. Decoded in this tab —
-                never uploaded.
+                Load the demo sample or open a local NIfTI. Stays in this tab.
               </p>
             )}
           </section>
@@ -278,9 +251,7 @@ function ReadingRoom() {
             <h2 className="rail-label">Regions · {regions.length}</h2>
             {regions.length === 0 ? (
               <p className="empty-rail">
-                {studyName
-                  ? "No regions yet. Have the agent call find_regions — results land here and paint the volume."
-                  : "Load a study, then ask the agent to find regions by intensity."}
+                {studyName ? "No regions yet." : "Load a study to begin."}
               </p>
             ) : (
               <ul className="regions">
@@ -337,18 +308,11 @@ function ReadingRoom() {
             </div>
           ) : null}
 
-          {studyName ? (
-            <p className="stage-foot">Measurements leave. Voxels do not.</p>
-          ) : null}
-
           {!studyName && !loading ? (
             <div className="empty">
               <p className="empty-kicker">Reading room</p>
               <h2>Open a study. Keep the voxels here.</h2>
-              <p>
-                Faraday exposes measurements to the agent through WebMCP. The volume never leaves this
-                browser tab.
-              </p>
+              <p>Open a volume in this tab. The agent works from measurements — never the image itself.</p>
               <div className="empty-actions">
                 <button type="button" className="btn btn-primary" onClick={() => void loadDemo()}>
                   Load demo CT/MR
@@ -384,7 +348,7 @@ function ConfirmDialog() {
     <div className="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
       <div className="sheet">
         <h2 id="confirm-title">Approve “{pending.tool}”?</h2>
-        <p>The agent wants to run this tool. Measurements may leave the page; voxel data does not.</p>
+        <p>This tool may send measurements off the page. Voxel data stays here.</p>
         <pre>{JSON.stringify(pending.args, null, 2)}</pre>
         <div className="actions">
           <button type="button" className="btn btn-danger" onClick={() => pending.reject()}>

@@ -68,10 +68,8 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
         name="describe_study"
         title="Describe the loaded study"
         description={
-          "Report the loaded volume's grid size, voxel spacing in millimetres, intensity range, " +
-          "suggested intensity window for bright-region search, render backend, and current view. " +
-          "Call this first to orient yourself. The intensity histogram is computed on-device " +
-          "(WebGPU when available); voxel data never leaves the tab."
+          "Report grid size, voxel spacing in mm, intensity range, a suggested bright-region " +
+          "window, and the current view. Call first. Histogram runs on-device; voxels stay in-tab."
         }
         annotations={{ readOnlyHint: true }}
         handler={async () => {
@@ -81,16 +79,14 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
           const { dims, spacing } = snapshot.meta;
           const hist = await histogramWebGpu(snapshot.data);
           const hint = suggestBrightWindow(hist);
-          const backend = controller.renderBackend();
 
           return ok(
             `Loaded "${snapshot.name}": ${dims.join(" × ")} voxels at ` +
               `${spacing.map((s) => round(s, 2)).join(" × ")} mm. ` +
-              `Intensity ${round(hist.min)} → ${round(hist.max)} ` +
-              `(histogram via ${hist.backend}). ` +
+              `Intensity ${round(hist.min)} → ${round(hist.max)}. ` +
               `Suggested bright window for find_regions: ${hint.min} → ${hint.max} ` +
               `(${hint.reason}). ` +
-              `Viewer: ${controller.currentView()} on ${backend}.`,
+              `View: ${controller.currentView()}.`,
             {
               name: snapshot.name,
               dims,
@@ -98,8 +94,6 @@ export function FaradayTools({ controller }: { controller: ReadingRoomController
               intensity_min: round(hist.min),
               intensity_max: round(hist.max),
               suggested_window: { min: hint.min, max: hint.max, reason: hint.reason },
-              histogram_backend: hist.backend,
-              render_backend: backend,
               view: controller.currentView(),
             },
           );
