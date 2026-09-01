@@ -211,8 +211,9 @@ export function suggestBrightWindow(hist: HistogramResult): IntensityWindowHint 
     };
   }
 
-  // Upper 20% of non-background mass.
-  const target = total * 0.2;
+  // Upper ~5% of non-background mass — tighter than 20% so contrast-
+  // enhancing lesions on T1-Gd don't dissolve into "the whole brain".
+  const target = total * 0.05;
   let acc = 0;
   let start = bins.length - 1;
   for (let i = bins.length - 1; i >= backgroundCutoff; i -= 1) {
@@ -225,6 +226,6 @@ export function suggestBrightWindow(hist: HistogramResult): IntensityWindowHint 
   return {
     min: Math.round(suggestedMin * 10) / 10,
     max: Math.round(hist.max * 10) / 10,
-    reason: `upper ~20% of intensities above the background mode (bin ${mode})`,
+    reason: `upper ~5% of intensities above the background mode (bin ${mode})`,
   };
 }
