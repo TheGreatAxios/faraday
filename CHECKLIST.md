@@ -13,8 +13,10 @@ Deadline: **Sep 3, 2026 @ 1:00pm PDT** · https://webmcp.devpost.com
 ## You do now (≈5 minutes)
 
 1. **YouTube** — upload `demo/faraday-demo.mp4` as **Public**
+   - Or download from the release: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
    - Title: `Faraday — WebMCP agent-native medical imaging (WebMCP Challenge)`
    - Description: see `SUBMISSION.md`
+   - Helper: `./scripts/open-submit.sh` (opens Finder + YouTube Studio + Devpost)
 2. **Devpost** — Enter a Submission at https://webmcp.devpost.com
    - Paste fields from `SUBMISSION.md`
    - Live URL + repo + YouTube link
