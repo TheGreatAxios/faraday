@@ -66,6 +66,9 @@ export function histogramCpu(
  * reduction) then dispatch. Upgrade path: a two-pass min/max + histogram
  * pipeline that never reads the volume back to JS.
  */
+/** requestAdapter/mapAsync can hang forever in some Chrome/WebGPU contexts. */
+const WEBGPU_HISTOGRAM_MS = 4_000;
+
 export async function histogramWebGpu(
   data: Float32Array,
   binCount = DEFAULT_BINS,
@@ -86,13 +89,32 @@ export async function histogramWebGpu(
     return histogramCpu(data, binCount, { min, max });
   }
 
-  try {
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) return histogramCpu(data, binCount, { min, max });
-    const device = await adapter.requestDevice();
+  const cpu = () => histogramCpu(data, binCount, { min, max });
 
+  try {
+    return await Promise.race([
+      histogramWebGpuUnchecked(data, binCount, min, max),
+      new Promise<HistogramResult>((resolve) => {
+        setTimeout(() => resolve(cpu()), WEBGPU_HISTOGRAM_MS);
+      }),
+    ]);
+  } catch {
+    return cpu();
+  }
+}
+
+async function histogramWebGpuUnchecked(
+  data: Float32Array,
+  binCount: number,
+  min: number,
+  max: number,
+): Promise<HistogramResult> {
+  const adapter = await navigator.gpu!.requestAdapter();
+  if (!adapter) return histogramCpu(data, binCount, { min, max });
+  const device = await adapter.requestDevice();
+
+  try {
     const binWidth = (max - min) / binCount;
-    // Pad to 4-byte alignment for storage buffer copy.
     const voxelCount = data.length;
     const values = new Float32Array(voxelCount);
     values.set(data);
@@ -107,7 +129,6 @@ export async function histogramWebGpu(
       size: binCount * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     });
-    // Zero the histogram.
     device.queue.writeBuffer(histBuffer, 0, new Uint32Array(binCount));
 
     const params = new Float32Array([min, binWidth, binCount, voxelCount]);
@@ -175,11 +196,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     await readBuffer.mapAsync(GPUMapMode.READ);
     const bins = new Uint32Array(readBuffer.getMappedRange().slice(0));
     readBuffer.unmap();
-    device.destroy();
 
     return { bins, min, max, binWidth, backend: "webgpu" };
-  } catch {
-    return histogramCpu(data, binCount, { min, max });
+  } finally {
+    device.destroy();
   }
 }
 
