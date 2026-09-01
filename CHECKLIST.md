@@ -1,28 +1,23 @@
-# Faraday — final submission checklist
+# Faraday — submission handoff
 
 Deadline: **Sep 3, 2026 @ 1:00pm PDT** · https://webmcp.devpost.com
 
-## Already done
+## Ready
 
-- [x] Live app: https://thegreataxios.github.io/faraday/
-- [x] Public MIT repo: https://github.com/TheGreatAxios/faraday
-- [x] WebMCP tools + journeys + HITL export (smoke-tested)
-- [x] Demo sample + README / SUBMISSION / WEBMCP copy
-- [x] Narrated demo file: `demo/faraday-demo.mp4` (~40s)
-- [x] Release asset: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
+- [x] Live: https://thegreataxios.github.io/faraday/
+- [x] Repo (MIT): https://github.com/TheGreatAxios/faraday
+- [x] Tools + journeys + HITL export (live smoke-tested)
+- [x] Bundled sample + README / WEBMCP / SUBMISSION
+- [x] Narrated demo: `demo/faraday-demo.mp4` (~31s)
+- [x] Release: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
 
-## You do now (≈5 minutes)
+## Remaining (Codex / you)
 
-1. **YouTube** — upload `demo/faraday-demo.mp4` as **Public**
-   - Or download from the release above
-   - Title / description: see `SUBMISSION.md`
-   - Helper: `./scripts/open-submit.sh` (opens Finder + YouTube Studio + Devpost)
-2. **Devpost** — Enter a Submission at https://webmcp.devpost.com
-   - Paste fields from `SUBMISSION.md` (already on clipboard via helper)
-   - Live URL + repo + YouTube link
-3. Reply in chat with the YouTube URL so the goal can be marked complete
+1. Upload `demo/faraday-demo.mp4` to YouTube as **Public** (title/description in `SUBMISSION.md`)
+2. Enter the Devpost submission (Devpost Hackathons plugin in Codex is fine) with live URL, repo, YouTube link, and paste pack from `SUBMISSION.md`
+3. Optional helper: `./scripts/open-submit.sh`
 
-## Agent demo prompt (for live judging)
+## Live judge prompt
 
 ```
 Load the demo study if needed. Call describe_study, then find_regions with the
