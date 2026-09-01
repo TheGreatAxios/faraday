@@ -8,7 +8,7 @@ Deadline: **Sep 3, 2026 @ 1:00pm PDT** · https://webmcp.devpost.com
 - [x] Repo (MIT): https://github.com/TheGreatAxios/faraday
 - [x] Tools + journeys + HITL export (live smoke-tested)
 - [x] Bundled sample + README / WEBMCP / SUBMISSION
-- [x] Narrated demo: `demo/faraday-demo.mp4` (~31s)
+- [x] Narrated demo: `demo/faraday-demo.mp4` (~30s)
 - [x] Release: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
 
 ## Remaining (Codex / you)

@@ -12,11 +12,13 @@ document.modelContext.registerTool(descriptor, { signal, exposedTo })
 
 | Name | Purpose |
 |------|---------|
-| `describe_study` | Grid, spacing, intensity range, suggested window, backend |
+| `describe_study` | Grid, spacing, intensity range, suggested window |
 | `find_regions` | Connected components + drawing overlay |
 | `focus_region` | Move crosshair to a found region |
 | `set_view` | axial / coronal / sagittal / multiplanar / render |
 | `export_findings` | Measurements JSON — **HITL confirm required** |
+
+Journeys: `review` (orient + locate) and `report` (export). Both are active in the reading room.
 
 ## Equivalent imperative shape
 
