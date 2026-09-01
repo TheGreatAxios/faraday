@@ -144,8 +144,14 @@ label.file {
   cursor: pointer;
 }
 
-button:hover,
-label.file:hover {
+button:disabled,
+label.file:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled),
+label.file:hover:has(input:not(:disabled)) {
   border-color: var(--accent);
 }
 

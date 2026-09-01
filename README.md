@@ -54,10 +54,12 @@ Vendored copies of `@thegreataxios/webmcp-core` and `@thegreataxios/webmcp-react
 - Bundled demo: [`public/samples/`](./public/samples/) — see [ATTRIBUTION.md](./public/samples/ATTRIBUTION.md)
 - More volumes: [`data/README.md`](./data/README.md) (gitignored downloads)
 
-## Stack
+## Built on
 
 - [NiiVue](https://github.com/niivue/niivue) — WebGPU / WebGL2 volume rendering
 - [`@thegreataxios/webmcp`](https://github.com/TheGreatAxios/webmcp) — WebMCP polyfill, React bindings, journeys, HITL confirm
+
+See [WEBMCP.md](./WEBMCP.md) for how tools map to `document.modelContext.registerTool`.
 
 ## License
 

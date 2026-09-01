@@ -35,6 +35,7 @@ function ReadingRoom() {
   const [focused, setFocused] = useState<number | null>(null);
   const [view, setView] = useState<ViewName>("multiplanar");
   const [backend, setBackend] = useState<RenderBackend>("unknown");
+  const [loading, setLoading] = useState(false);
   const { available, native } = useWebMCP();
 
   useEffect(() => {
@@ -98,13 +99,18 @@ function ReadingRoom() {
     async (url: string, name: string) => {
       const nv = nvRef.current;
       if (!nv) return;
-      await nv.loadVolumes([{ url, name }]);
-      snapshotRef.current = readVolume(nv as unknown as NiiVueLike);
-      regionsRef.current = [];
-      setRegions([]);
-      setFocused(null);
-      paintOverlay(null);
-      setStudyName(snapshotRef.current?.name ?? name);
+      setLoading(true);
+      try {
+        await nv.loadVolumes([{ url, name }]);
+        snapshotRef.current = readVolume(nv as unknown as NiiVueLike);
+        regionsRef.current = [];
+        setRegions([]);
+        setFocused(null);
+        paintOverlay(null);
+        setStudyName(snapshotRef.current?.name ?? name);
+      } finally {
+        setLoading(false);
+      }
     },
     [paintOverlay],
   );
@@ -184,14 +190,15 @@ function ReadingRoom() {
         <div className="section">
           <h2>Study</h2>
           <div className="actions-row">
-            <button type="button" onClick={() => void loadDemo()}>
-              Load demo CT/MR
+            <button type="button" disabled={loading} onClick={() => void loadDemo()}>
+              {loading ? "Loading volume…" : "Load demo CT/MR"}
             </button>
             <label className="file">
               {studyName ? "Open another" : "Open NIfTI"}
               <input
                 type="file"
                 accept=".nii,.nii.gz,.gz"
+                disabled={loading}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void openFile(file);
