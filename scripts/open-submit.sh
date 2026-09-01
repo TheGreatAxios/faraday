@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Open everything Sawyer needs to finish the Devpost submission.
+# Open the surfaces needed to finish Devpost (YouTube + form).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEMO="$ROOT/demo/faraday-demo.mp4"
@@ -13,10 +13,25 @@ open "$ROOT/demo"
 open "https://studio.youtube.com/channel/upload"
 open "https://webmcp.devpost.com/"
 open "https://thegreataxios.github.io/faraday/"
-pbcopy < "$ROOT/SUBMISSION.md" 2>/dev/null || true
+
+# Clipboard: YouTube description block (title is one line above it in SUBMISSION.md)
+{
+  echo "Faraday — WebMCP agent-native medical imaging (WebMCP Challenge)"
+  echo ""
+  cat <<'EOF'
+Faraday is a WebMCP-powered reading room: AI agents measure CT/MRI volumes
+without voxels ever leaving the browser tab.
+
+Live: https://thegreataxios.github.io/faraday/
+Code: https://github.com/TheGreatAxios/faraday
+
+Research/education only — not a medical device.
+Built for the OpenAI WebMCP Challenge.
+EOF
+} | pbcopy 2>/dev/null || true
+
 echo "Finder → demo/faraday-demo.mp4"
-echo "YouTube Studio upload opened"
-echo "Devpost opened"
-echo "SUBMISSION.md copied to clipboard (if pbcopy available)"
-echo ""
-echo "After YouTube is Public, paste the URL back in chat to close the goal."
+echo "YouTube Studio + Devpost + live app opened"
+echo "YouTube title + description copied to clipboard"
+echo "Paste pack for Devpost fields: $ROOT/SUBMISSION.md"
+echo "Codex handoff: $ROOT/HANDOFF.md"
