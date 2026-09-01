@@ -28,8 +28,8 @@ Medical volumes live as GPU textures. DOM automation sees an empty canvas. Serve
 
 ## Links to fill on Devpost
 
-- Live URL: _(after deploy)_
-- Repo: _(after `gh repo create`)_
+- Live URL: https://thegreataxios.github.io/faraday/
+- Repo: https://github.com/TheGreatAxios/faraday
 - Demo video: _(YouTube, <3 min — see DEMO.md)_
 
 ## Prior work note
