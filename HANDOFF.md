@@ -14,7 +14,7 @@ Use the Devpost Hackathons plugin in Codex for register/submit. Paste pack is `S
 | Tools | `describe_study`, `find_regions`, `focus_region`, `set_view`, `export_findings` (HITL) |
 | Journeys | `review`, `report` |
 | Demo sample | bundled UPENN-GBM T1-Gd |
-| Narrated demo MP4 (~30s) | `demo/faraday-demo.mp4` · [release](https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1) |
+| Narrated demo MP4 (~30s) | `demo/faraday-demo.mp4` · [Pages stream](https://thegreataxios.github.io/faraday/faraday-demo.mp4) · [release](https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1) |
 
 ## Devpost gallery images
 

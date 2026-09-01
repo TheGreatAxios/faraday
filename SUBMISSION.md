@@ -37,6 +37,7 @@ Medical volumes live as GPU textures. DOM automation sees an empty canvas. Serve
 | Demo video | **TODO: upload `demo/faraday-demo.mp4` to YouTube (public)** |
 
 Local demo (~30s, narrated): `demo/faraday-demo.mp4`  
+Streamable (not a YouTube substitute — Devpost requires YouTube): https://thegreataxios.github.io/faraday/faraday-demo.mp4  
 Release mirror: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1  
 Re-record: `bun run scripts/record-demo.ts` then remux with `demo/narration.aiff`.
 
