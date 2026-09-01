@@ -1,11 +1,13 @@
 # Faraday
 
-**An agent-native reading room for volumetric medical imaging.**
-The agent reads the scan. The scan never leaves the tab.
+**An agent-native reading room for volumetric medical imaging.**  
+The scan stays in the cage — the agent gets measurements, never voxels.
 
 > Research and education only. Not a medical device and not for diagnostic use.
 
 Built for the [OpenAI WebMCP Challenge](https://webmcp.devpost.com).
+
+**Live:** https://thegreataxios.github.io/faraday/ · **Repo:** https://github.com/TheGreatAxios/faraday · **Demo video asset:** https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
 
 ## Why WebMCP
 
