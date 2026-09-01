@@ -27,6 +27,10 @@ const VIEW_OPTIONS: { id: ViewName; label: string }[] = [
   { id: "render", label: "3D" },
 ];
 
+const VIEW_LABEL: Record<ViewName, string> = Object.fromEntries(
+  VIEW_OPTIONS.map((option) => [option.id, option.label]),
+) as Record<ViewName, string>;
+
 function preferBackend(): "webgpu" | "webgl2" {
   return typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "webgl2";
 }
@@ -236,7 +240,7 @@ function ReadingRoom() {
                   </div>
                   <div>
                     <dt>View</dt>
-                    <dd>{view}</dd>
+                    <dd>{VIEW_LABEL[view]}</dd>
                   </div>
                 </dl>
               </div>
