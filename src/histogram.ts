@@ -184,9 +184,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 
 /**
- * Suggest an intensity window for lesion-hunting: skip the giant near-zero
- * background peak (air/skull-stripped empty), then take the upper tail of the
- * remaining mass. Rough heuristic — good enough for agent bootstrapping.
+ * Suggest an intensity window for bright-region search.
+ * Walk the histogram from the bright end until ~0.5% of all voxels are
+ * covered — tight enough that contrast-enhancing tissue doesn't merge into
+ * the whole brain on T1-Gd.
  */
 export function suggestBrightWindow(hist: HistogramResult): IntensityWindowHint {
   const { bins, min, binWidth } = hist;
@@ -194,29 +195,16 @@ export function suggestBrightWindow(hist: HistogramResult): IntensityWindowHint 
     return { min, max: hist.max, reason: "degenerate intensity range; using full span" };
   }
 
-  // Find the mode; treat bins within 5% of it as "background".
-  let mode = 0;
-  for (let i = 1; i < bins.length; i += 1) {
-    if ((bins[i] ?? 0) > (bins[mode] ?? 0)) mode = i;
-  }
-  const backgroundCutoff = mode + Math.max(2, Math.floor(bins.length * 0.05));
-
   let total = 0;
-  for (let i = backgroundCutoff; i < bins.length; i += 1) total += bins[i] ?? 0;
+  for (let i = 0; i < bins.length; i += 1) total += bins[i] ?? 0;
   if (total === 0) {
-    return {
-      min: Math.round((min + binWidth * backgroundCutoff) * 10) / 10,
-      max: Math.round(hist.max * 10) / 10,
-      reason: "no bright tail above background; using everything above the mode",
-    };
+    return { min, max: hist.max, reason: "empty histogram; using full span" };
   }
 
-  // Upper ~5% of non-background mass — tighter than 20% so contrast-
-  // enhancing lesions on T1-Gd don't dissolve into "the whole brain".
-  const target = total * 0.05;
+  const target = Math.max(1, Math.floor(total * 0.005));
   let acc = 0;
   let start = bins.length - 1;
-  for (let i = bins.length - 1; i >= backgroundCutoff; i -= 1) {
+  for (let i = bins.length - 1; i >= 0; i -= 1) {
     acc += bins[i] ?? 0;
     start = i;
     if (acc >= target) break;
@@ -226,6 +214,6 @@ export function suggestBrightWindow(hist: HistogramResult): IntensityWindowHint 
   return {
     min: Math.round(suggestedMin * 10) / 10,
     max: Math.round(hist.max * 10) / 10,
-    reason: `upper ~5% of intensities above the background mode (bin ${mode})`,
+    reason: `upper ~0.5% of voxel intensities (from bin ${start})`,
   };
 }
