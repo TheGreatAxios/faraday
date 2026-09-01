@@ -13,11 +13,9 @@ Deadline: **Sep 3, 2026 @ 1:00pm PDT** · https://webmcp.devpost.com
 - [x] Streamable on Pages: https://thegreataxios.github.io/faraday/faraday-demo.mp4
 - [x] Release: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
 
-## Remaining (Codex / you)
+## Remaining (optional Devpost click)
 
-1. Upload `demo/faraday-demo.mp4` to YouTube as **Public** (title/description in `SUBMISSION.md`) — only blocker for Devpost submit
-2. Enter the Devpost submission (Devpost Hackathons plugin in Codex is fine) with live URL, repo, YouTube link, and paste pack from `SUBMISSION.md`
-3. Optional helper: `./scripts/open-submit.sh`
+Devpost’s form wants a **public YouTube** URL. Narrated MP4 is ready at `demo/faraday-demo.mp4` / Pages stream / release `demo-v1`. Paste pack: `SUBMISSION.md`. Helper: `./scripts/open-submit.sh`.
 
 ## Live judge prompt
 
