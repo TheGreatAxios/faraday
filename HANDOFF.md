@@ -16,6 +16,10 @@ Use the Devpost Hackathons plugin in Codex for register/submit. Paste pack is `S
 | Demo sample | bundled UPENN-GBM T1-Gd |
 | Narrated demo MP4 (~30s) | `demo/faraday-demo.mp4` · [release](https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1) |
 
+## Devpost gallery images
+
+`demo/gallery/` — empty, loaded MPR, regions overlay, 3D, HITL approve.
+
 ## You must finish
 
 1. Upload `demo/faraday-demo.mp4` to YouTube as **Public**
