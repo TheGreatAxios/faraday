@@ -1,0 +1,8 @@
+node_modules
+/dist
+.DS_Store
+*.log
+
+# Imaging data is fetched locally, never committed. See data/README.md.
+data/*
+!data/README.md
