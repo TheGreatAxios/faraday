@@ -92,10 +92,10 @@ select {
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 10px 16px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
-  backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
   z-index: 2;
 }
 
@@ -206,19 +206,19 @@ select {
 
 .workspace {
   display: grid;
-  grid-template-columns: 312px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   min-height: 0;
-  gap: 0;
-  padding: 0;
+  gap: 14px;
+  padding: 14px 14px 14px 0;
 }
 
 .rail {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 18px 16px 14px;
-  border-right: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  padding: 6px 4px 10px 16px;
+  border-right: 0;
+  background: transparent;
   overflow-y: auto;
 }
 
@@ -493,7 +493,11 @@ label.btn:has(input:disabled) {
   min-width: 0;
   min-height: 0;
   background: var(--stage);
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgb(20 19 17 / 0.08),
+    0 18px 40px rgb(20 19 17 / 0.12);
 }
 
 .stage canvas {
@@ -750,12 +754,15 @@ label.btn:has(input:disabled) {
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(52vh, 1fr);
+    padding: 10px;
+    gap: 10px;
   }
 
   .rail {
     border-right: 0;
-    border-bottom: 1px solid var(--line);
-    max-height: 42vh;
+    border-bottom: 0;
+    max-height: 38vh;
+    padding: 4px 2px 0;
   }
 
   .brand-tag {

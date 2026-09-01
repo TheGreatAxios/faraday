@@ -8,7 +8,7 @@ Faraday — agent-native volumetric reading room
 
 ## Tagline
 
-The agent reads the scan. The scan never leaves the tab.
+The scan stays in the cage.
 
 ## Elevator (built with)
 
@@ -20,7 +20,7 @@ Medical volumes live as GPU textures. DOM automation sees an empty canvas. Serve
 
 ## Better UX: what people and agents do together
 
-- **Human:** loads a study (one-click demo), watches overlays update live, approves export
+- **Human:** loads a study (one-click demo), switches Axial/Coronal/Sagittal/MPR/3D, watches overlays update live, approves export
 - **Agent:** `describe_study` → on-device WebGPU histogram → `find_regions` → `focus_region` → `set_view` → `export_findings`
 - **Impossible before:** reliable agent actuation on a canvas-only medical viewer without uploading the scan
 
@@ -36,7 +36,8 @@ Medical volumes live as GPU textures. DOM automation sees an empty canvas. Serve
 | Repo | https://github.com/TheGreatAxios/faraday |
 | Demo video | **TODO: upload `demo/faraday-demo.mp4` to YouTube (public)** |
 
-Local demo file (with narration, ~43s): `demo/faraday-demo.mp4`  
+Local demo (~40s, narrated): `demo/faraday-demo.mp4`  
+Release mirror: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1  
 Re-record: `bun run scripts/record-demo.ts` then remux with `demo/narration.aiff`.
 
 ## Suggested YouTube title / description

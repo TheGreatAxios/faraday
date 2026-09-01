@@ -7,20 +7,20 @@ Deadline: **Sep 3, 2026 @ 1:00pm PDT** · https://webmcp.devpost.com
 - [x] Live app: https://thegreataxios.github.io/faraday/
 - [x] Public MIT repo: https://github.com/TheGreatAxios/faraday
 - [x] WebMCP tools + journeys + HITL export (smoke-tested)
-- [x] Demo sample + README / SUBMISSION copy
-- [x] Narrated demo file: `demo/faraday-demo.mp4` (~43s)
+- [x] Demo sample + README / SUBMISSION / WEBMCP copy
+- [x] Narrated demo file: `demo/faraday-demo.mp4` (~40s)
+- [x] Release asset: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
 
 ## You do now (≈5 minutes)
 
 1. **YouTube** — upload `demo/faraday-demo.mp4` as **Public**
-   - Or download from the release: https://github.com/TheGreatAxios/faraday/releases/tag/demo-v1
-   - Title: `Faraday — WebMCP agent-native medical imaging (WebMCP Challenge)`
-   - Description: see `SUBMISSION.md`
+   - Or download from the release above
+   - Title / description: see `SUBMISSION.md`
    - Helper: `./scripts/open-submit.sh` (opens Finder + YouTube Studio + Devpost)
 2. **Devpost** — Enter a Submission at https://webmcp.devpost.com
-   - Paste fields from `SUBMISSION.md`
+   - Paste fields from `SUBMISSION.md` (already on clipboard via helper)
    - Live URL + repo + YouTube link
-3. Reply here with the YouTube URL so the goal can be marked complete
+3. Reply in chat with the YouTube URL so the goal can be marked complete
 
 ## Agent demo prompt (for live judging)
 
