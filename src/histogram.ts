@@ -185,7 +185,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 /**
  * Suggest an intensity window for bright-region search.
- * Walk the histogram from the bright end until ~0.5% of all voxels are
+ * Walk the histogram from the bright end until ~0.05% of all voxels are
  * covered — tight enough that contrast-enhancing tissue doesn't merge into
  * the whole brain on T1-Gd.
  */
@@ -201,7 +201,7 @@ export function suggestBrightWindow(hist: HistogramResult): IntensityWindowHint 
     return { min, max: hist.max, reason: "empty histogram; using full span" };
   }
 
-  const target = Math.max(1, Math.floor(total * 0.001));
+  const target = Math.max(1, Math.floor(total * 0.0005));
   let acc = 0;
   let start = bins.length - 1;
   for (let i = bins.length - 1; i >= 0; i -= 1) {
@@ -214,6 +214,6 @@ export function suggestBrightWindow(hist: HistogramResult): IntensityWindowHint 
   return {
     min: Math.round(suggestedMin * 10) / 10,
     max: Math.round(hist.max * 10) / 10,
-    reason: `upper ~0.1% of voxel intensities (from bin ${start})`,
+    reason: `upper ~0.05% of voxel intensities (from bin ${start})`,
   };
 }
