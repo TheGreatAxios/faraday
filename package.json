@@ -1,0 +1,34 @@
+{
+  "name": "faraday",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An agent-native reading room for volumetric medical imaging. The agent reads the scan; the scan never leaves the tab.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@niivue/niivue": "next",
+    "@thegreataxios/webmcp-core": "file:../webmcp/packages/core",
+    "@thegreataxios/webmcp-react": "file:../webmcp/packages/react",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "//overrides": "Local file: links until @thegreataxios/webmcp-* are published. The override rewrites the react package's internal workspace:* pin, which cannot resolve outside its monorepo.",
+  "overrides": {
+    "@thegreataxios/webmcp-core": "file:../webmcp/packages/core"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0"
+  }
+}
