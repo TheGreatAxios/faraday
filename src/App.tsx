@@ -75,6 +75,9 @@ function ReadingRoom() {
   const [coords, setCoords] = useState<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
   const [zoomPct, setZoomPct] = useState(100);
   const [navSection, setNavSection] = useState<"home" | "study" | "regions" | "settings">("study");
+  const [windowOpen, setWindowOpen] = useState(false);
+  const [intensitySpan, setIntensitySpan] = useState<{ min: number; max: number } | null>(null);
+  const [displayWindow, setDisplayWindow] = useState<{ min: number; max: number } | null>(null);
   const coordUnitRef = useRef<CoordUnit>("mm");
   coordUnitRef.current = coordUnit;
 
@@ -172,6 +175,9 @@ function ReadingRoom() {
     setRegions([]);
     setFocused(null);
     paintOverlay(null);
+    setWindowOpen(false);
+    setIntensitySpan(null);
+    setDisplayWindow(null);
   }, [paintOverlay]);
 
   const openUrl = useCallback(
@@ -195,8 +201,24 @@ function ReadingRoom() {
         setStudyName(snap?.name ?? name);
         setStudyMeta(snap ? { dims: snap.meta.dims, spacing: snap.meta.spacing } : null);
         setNavSection("study");
-        // Seed coords from volume centre.
         if (snap) {
+          let min = Infinity;
+          let max = -Infinity;
+          const data = snap.data;
+          // Sample for UI window defaults — full scan is fine at demo size.
+          for (let i = 0; i < data.length; i += 1) {
+            const v = data[i]!;
+            if (v < min) min = v;
+            if (v > max) max = v;
+          }
+          if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
+            min = 0;
+            max = 1;
+          }
+          setIntensitySpan({ min, max });
+          setDisplayWindow({ min, max });
+          void nv.setVolume(0, { calMin: min, calMax: max });
+
           const [nx, ny, nz] = snap.meta.dims;
           const [sx, sy, sz] = snap.meta.spacing;
           const cx = Math.floor(nx / 2);
@@ -271,6 +293,17 @@ function ReadingRoom() {
       }
       return next;
     });
+  }, []);
+
+  const applyDisplayWindow = useCallback(async (min: number, max: number) => {
+    const lo = Math.min(min, max);
+    const hi = Math.max(min, max);
+    setDisplayWindow({ min: lo, max: hi });
+    const nv = nvRef.current;
+    if (nv) {
+      await nv.setVolume(0, { calMin: lo, calMax: hi });
+      nv.drawScene();
+    }
   }, []);
 
   const applyZoom = useCallback((pct: number) => {
@@ -543,9 +576,55 @@ function ReadingRoom() {
                   </button>
                 ))}
               </div>
-              <button type="button" className="tool-icon" aria-label="Window / level" title="Window / level">
+              <button
+                type="button"
+                className={windowOpen ? "tool-icon active" : "tool-icon"}
+                aria-label="Window / level"
+                aria-expanded={windowOpen}
+                title="Window / level"
+                onClick={() => setWindowOpen((v) => !v)}
+              >
                 <IconSun />
               </button>
+              {windowOpen && intensitySpan && displayWindow ? (
+                <div className="window-popover" role="dialog" aria-label="Display window">
+                  <label>
+                    <span>Min</span>
+                    <input
+                      type="range"
+                      min={intensitySpan.min}
+                      max={intensitySpan.max}
+                      step={(intensitySpan.max - intensitySpan.min) / 256 || 1}
+                      value={displayWindow.min}
+                      onChange={(e) =>
+                        void applyDisplayWindow(Number(e.target.value), displayWindow.max)
+                      }
+                    />
+                    <em>{Math.round(displayWindow.min)}</em>
+                  </label>
+                  <label>
+                    <span>Max</span>
+                    <input
+                      type="range"
+                      min={intensitySpan.min}
+                      max={intensitySpan.max}
+                      step={(intensitySpan.max - intensitySpan.min) / 256 || 1}
+                      value={displayWindow.max}
+                      onChange={(e) =>
+                        void applyDisplayWindow(displayWindow.min, Number(e.target.value))
+                      }
+                    />
+                    <em>{Math.round(displayWindow.max)}</em>
+                  </label>
+                  <button
+                    type="button"
+                    className="window-reset"
+                    onClick={() => void applyDisplayWindow(intensitySpan.min, intensitySpan.max)}
+                  >
+                    Reset
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

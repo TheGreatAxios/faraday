@@ -525,6 +525,59 @@ label.btn input[type="file"] {
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
 }
 
+.tool-icon.active {
+  color: #fff8ee;
+  background: color-mix(in srgb, var(--copper) 55%, #222);
+}
+
+.window-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(12 12 12 / 0.92);
+  backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.45);
+}
+
+.window-popover label {
+  display: grid;
+  grid-template-columns: 32px 1fr 40px;
+  gap: 6px;
+  align-items: center;
+  color: rgb(255 255 255 / 0.7);
+  font-size: 11px;
+}
+
+.window-popover input[type="range"] {
+  width: 100%;
+}
+
+.window-popover em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #fff;
+  text-align: right;
+}
+
+.window-reset {
+  appearance: none;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.06);
+  color: #fff;
+  min-height: 28px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
 .seg {
   display: flex;
   gap: 2px;
