@@ -26,7 +26,7 @@ await page.goto(BASE, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(800);
 await page.screenshot({ path: join(OUT, "01-empty.png") });
 
-await page.getByRole("button", { name: /^Load demo$/ }).click();
+await page.getByRole("button", { name: /Sample study/i }).first().click();
 await page.waitForFunction(() => /UPENN-GBM/.test(document.body.innerText) && !/Decoding/.test(document.body.innerText));
 await page.waitForTimeout(1200);
 await page.screenshot({ path: join(OUT, "02-loaded.png") });

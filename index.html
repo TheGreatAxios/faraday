@@ -3,19 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Faraday — agent-native reading room</title>
+    <title>Faraday — Agent-Native Medical Imaging Reading Room</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta
       name="description"
-      content="Read volumetric medical imaging with an AI agent. The agent calls tools; the voxels never leave the tab."
+      content="Faraday is a zero-egress clinical neuroimaging reading room with native WebMCP tool calling for autonomous AI agents."
     />
+
+    <!-- AI Agent & Content Signals -->
+    <link rel="alternate" type="text/markdown" href="./llms.txt" title="LLMs Context" />
+    <link rel="alternate" type="text/markdown" href="./skill.md" title="Agent Skill" />
+    <meta name="ai-agent" content="enabled" />
+    <meta name="ai-content-declaration" content="agent-native, zero-egress, webmcp" />
+    <meta name="webmcp" content="enabled" />
+    <meta name="webmcp:tools" content="describe_study, find_regions, focus_region, set_view, export_findings" />
+    <meta name="webmcp:protocol" content="navigator.modelContext" />
+
+    <!-- OpenGraph / Social -->
+    <meta property="og:title" content="Faraday — Agent-Native Reading Room" />
+    <meta property="og:description" content="Read volumetric medical scans with AI agents. Measurements leave; raw voxels stay in-tab." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://thegreataxios.github.io/faraday/" />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <meta name="theme-color" content="#f3f2ef" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Faraday",
+        "url": "https://thegreataxios.github.io/faraday/",
+        "applicationCategory": "MedicalApplication",
+        "operatingSystem": "All",
+        "description": "Agent-native volumetric medical imaging reading room with native WebMCP execution.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

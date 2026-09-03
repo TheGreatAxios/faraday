@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# LLM and Agent Context
+LLMs-Txt: https://thegreataxios.github.io/faraday/llms.txt
+Agent-Skill: https://thegreataxios.github.io/faraday/skill.md
+WebMCP: https://thegreataxios.github.io/faraday/

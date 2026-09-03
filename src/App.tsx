@@ -4,7 +4,7 @@ import {
   ExperimentalWebMCPConfirmProvider,
   experimental_useWebMCPConfirm,
 } from "@thegreataxios/webmcp-react";
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import type { Region } from "./regions";
 import { StudyGate, createExclusiveQueue } from "./session";
 import { FaradayTools, type ReadingRoomController, type ViewName } from "./tools";
@@ -34,7 +34,7 @@ const VIEW_LABEL: Record<ViewName, string> = Object.fromEntries(
 ) as Record<ViewName, string>;
 
 const CROSSHAIR_WIDTH = 0.85;
-const CROSSHAIR_COLOR = [0.92, 0.52, 0.18, 0.95];
+const CROSSHAIR_COLOR = [0.2, 0.7, 0.95, 0.9];
 
 function preferBackend(): "webgpu" | "webgl2" {
   return typeof navigator !== "undefined" && "gpu" in navigator ? "webgpu" : "webgl2";
@@ -74,8 +74,10 @@ function ReadingRoom() {
   const [coordUnit, setCoordUnit] = useState<CoordUnit>("mm");
   const [coords, setCoords] = useState<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
   const [zoomPct, setZoomPct] = useState(100);
-  const [navSection, setNavSection] = useState<"home" | "study" | "regions" | "settings">("study");
+  const [panelOpen, setPanelOpen] = useState(false);
   const [windowOpen, setWindowOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [intensitySpan, setIntensitySpan] = useState<{ min: number; max: number } | null>(null);
   const [displayWindow, setDisplayWindow] = useState<{ min: number; max: number } | null>(null);
   const coordUnitRef = useRef<CoordUnit>("mm");
@@ -95,7 +97,7 @@ function ReadingRoom() {
       placeholderText: "",
       crosshairWidth: CROSSHAIR_WIDTH,
       crosshairColor: CROSSHAIR_COLOR,
-      backColor: [0.02, 0.02, 0.02, 1],
+      backColor: [0.03, 0.03, 0.04, 1],
     } as ConstructorParameters<typeof NiiVue>[0];
     let nv = new NiiVue(opts);
     nvRef.current = nv;
@@ -163,7 +165,7 @@ function ReadingRoom() {
       return;
     }
     drawing.img.set(labels);
-    nv.drawOpacity = 0.55;
+    nv.drawOpacity = 0.6;
     nv.drawIsEnabled = true;
     nv.refreshDrawing();
     nv.drawScene();
@@ -200,12 +202,11 @@ function ReadingRoom() {
         snapshotRef.current = snap;
         setStudyName(snap?.name ?? name);
         setStudyMeta(snap ? { dims: snap.meta.dims, spacing: snap.meta.spacing } : null);
-        setNavSection("study");
+
         if (snap) {
           let min = Infinity;
           let max = -Infinity;
           const data = snap.data;
-          // Sample for UI window defaults — full scan is fine at demo size.
           for (let i = 0; i < data.length; i += 1) {
             const v = data[i]!;
             if (v < min) min = v;
@@ -237,7 +238,7 @@ function ReadingRoom() {
         gateRef.current.fail(gen);
         if (gateRef.current.isCurrent(gen)) {
           setLoading(false);
-          setLoadError(error instanceof Error ? error.message : "Failed to open volume.");
+          setLoadError(error instanceof Error ? error.message : "Failed to load study");
         }
       }
     },
@@ -359,19 +360,35 @@ function ReadingRoom() {
     setCoordUnit(next);
   }, [coordUnit]);
 
+  // Drag and Drop Handling
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e: DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragging(false);
+  };
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) void openFile(file);
+  };
+
   const controller: ReadingRoomController = {
     snapshot: () => snapshotRef.current,
     regions: () => regionsRef.current,
     studyEpoch: () => gateRef.current.epoch,
-    isLoading: () => gateRef.current.loading,
+    isLoading: () => loading,
     setRegions: (next, labels, epoch) => {
-      if (epoch !== undefined && !gateRef.current.isCurrent(epoch)) return false;
-      if (gateRef.current.loading) return false;
+      if (typeof epoch === "number" && !gateRef.current.isCurrent(epoch)) {
+        return false;
+      }
       regionsRef.current = next;
       setRegions(next);
-      setFocused(null);
       paintOverlay(labels ?? null);
-      setNavSection("regions");
+      if (next.length > 0) setPanelOpen(true);
       return true;
     },
     focusVoxel: (voxel) => {
@@ -393,26 +410,66 @@ function ReadingRoom() {
   const hasStudy = Boolean(studyName && studyMeta && !loading);
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand-lockup">
-          <span className="brand-glyph" aria-hidden="true">
-            <IconCage />
-          </span>
-          <div className="brand-text">
-            <h1 className="brand-mark">Faraday</h1>
-            <p className="brand-tag">The scan stays in the cage.</p>
+    <div
+      className={`app ${theme}-theme`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging ? (
+        <div className="drag-overlay" role="presentation">
+          <div className="drag-target">
+            <IconUpload className="drag-icon" />
+            <p className="drag-title">Drop NIfTI scan to open</p>
+            <p className="drag-hint">Supports .nii and .nii.gz</p>
           </div>
         </div>
+      ) : null}
+
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-name">Faraday</span>
+          <span className="brand-divider">/</span>
+          <span className="brand-sub">Reading Room</span>
+        </div>
+
+        {hasStudy ? (
+          <div className="study-chip" title={studyName!}>
+            <span className="study-name">{studyName}</span>
+            <span className="study-dim">{studyMeta!.dims.join("×")}</span>
+            <span className="study-spacing">{studyMeta!.spacing.map((s) => s.toFixed(1)).join("×")} mm</span>
+          </div>
+        ) : null}
+
         <div className="topbar-spacer" />
-        <div className="top-actions">
-          <button type="button" className="btn btn-primary" disabled={loading} onClick={() => void loadDemo()}>
+
+        <div className="topbar-actions">
+          {hasStudy ? (
+            <button
+              type="button"
+              className={panelOpen ? "tb-btn active" : "tb-btn"}
+              aria-pressed={panelOpen}
+              onClick={() => setPanelOpen((v) => !v)}
+            >
+              <IconTags />
+              <span>Findings</span>
+              {regions.length > 0 ? <span className="tb-pill">{regions.length}</span> : null}
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            className="tb-btn"
+            disabled={loading}
+            onClick={() => void loadDemo()}
+          >
             <IconFolder />
-            {loading ? "Loading…" : "Load demo"}
+            <span>Sample study</span>
           </button>
-          <label className={`btn btn-ghost${loading ? " is-disabled" : ""}`}>
+
+          <label className={`tb-btn primary${loading ? " is-disabled" : ""}`}>
             <IconUpload />
-            Open file
+            <span>Open file</span>
             <input
               type="file"
               accept=".nii,.nii.gz,.gz"
@@ -420,330 +477,362 @@ function ReadingRoom() {
               onChange={(event) => pickFile(event, openFile)}
             />
           </label>
+
+          <button
+            type="button"
+            className="tb-btn theme-toggle"
+            title={`Switch to ${theme === "light" ? "Dark PACS" : "Light Workstation"} mode`}
+            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+          >
+            {theme === "light" ? <IconMoon /> : <IconSun />}
+          </button>
         </div>
       </header>
 
-      <div className="shell">
-        <nav className="icon-rail" aria-label="Reading room">
-          <RailButton
-            label="Home"
-            active={navSection === "home"}
-            onClick={() => setNavSection("home")}
-          >
-            <IconHome />
-          </RailButton>
-          <RailButton
-            label="Study"
-            active={navSection === "study"}
-            onClick={() => setNavSection("study")}
-          >
-            <IconDatabase />
-          </RailButton>
-          <RailButton
-            label="Regions"
-            active={navSection === "regions"}
-            onClick={() => setNavSection("regions")}
-          >
-            <IconTags />
-          </RailButton>
-          <RailButton
-            label="Settings"
-            active={navSection === "settings"}
-            onClick={() => setNavSection("settings")}
-          >
-            <IconSettings />
-          </RailButton>
-          <div className="icon-rail-spacer" />
-          <div className="avatar" title="Local session" aria-label="Local session">
-            F
-            <span className="avatar-dot" aria-hidden="true" />
+      {hasStudy ? (
+        <div className="control-bar" role="toolbar" aria-label="Viewer controls">
+          <div className="cb-group">
+            <span className="cb-label">View</span>
+            <div className="cb-segmented">
+              {VIEW_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={view === option.id ? "cb-seg-btn active" : "cb-seg-btn"}
+                  aria-pressed={view === option.id}
+                  disabled={loading}
+                  onClick={() => applyView(option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </nav>
 
-        <aside className="panel">
-          {(navSection === "home" || navSection === "study" || navSection === "regions") && (
-            <>
-              <section className="panel-block">
-                <h2 className="panel-label">Study</h2>
-                {hasStudy ? (
-                  <div className="study-card">
-                    <p className="study-name">{studyName}</p>
-                    <dl className="study-stats">
-                      <div>
-                        <dt>Grid</dt>
-                        <dd>{studyMeta!.dims.join(" × ")}</dd>
-                      </div>
-                      <div>
-                        <dt>Spacing</dt>
-                        <dd>{studyMeta!.spacing.map((s) => s.toFixed(2)).join(" × ")} mm</dd>
-                      </div>
-                      <div>
-                        <dt>View</dt>
-                        <dd>{VIEW_LABEL[view]}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                ) : (
-                  <p className="study-hint">
-                    {loading
-                      ? "Decoding volume…"
-                      : "Load the demo sample or open a local NIfTI. Opening a file replaces the current study."}
-                  </p>
-                )}
-                {loadError ? <p className="load-error">{loadError}</p> : null}
-              </section>
+          <div className="cb-divider" />
 
-              <section className="panel-block" id="regions-panel">
-                <h2 className="panel-label">Regions · {regions.length}</h2>
-                {regions.length === 0 ? (
-                  <p className="empty-rail">
-                    {hasStudy
-                      ? "No regions yet. Create regions to annotate areas of interest."
-                      : "Load a study to begin."}
-                  </p>
-                ) : (
-                  <ul className="regions">
-                    {regions.slice(0, 10).map((region) => (
-                      <li key={region.id}>
-                        <button
-                          type="button"
-                          className={focused === region.id ? "region focused" : "region"}
-                          onClick={() => focusRegion(region)}
-                        >
-                          <div className="region-top">
-                            <span className="region-id">Region {region.id}</span>
-                            <span className="region-vol">{region.volumeMl.toFixed(2)} mL</span>
-                          </div>
-                          <div className="region-meta">
-                            {region.maxExtentMm.toFixed(1)} mm · μ {region.meanIntensity.toFixed(0)}
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </>
-          )}
+          <div className="cb-group">
+            <button
+              type="button"
+              className={windowOpen ? "cb-btn active" : "cb-btn"}
+              aria-pressed={windowOpen}
+              onClick={() => setWindowOpen((v) => !v)}
+            >
+              <IconSun />
+              <span>Window / Level</span>
+            </button>
 
-          {navSection === "settings" ? (
-            <section className="panel-block">
-              <h2 className="panel-label">Session</h2>
-              <div className="study-card">
-                <dl className="study-stats">
-                  <div>
-                    <dt>Render</dt>
-                    <dd>{backend}</dd>
-                  </div>
-                  <div>
-                    <dt>Epoch</dt>
-                    <dd>{studyEpoch}</dd>
-                  </div>
-                  <div>
-                    <dt>Zoom</dt>
-                    <dd>{zoomPct}%</dd>
-                  </div>
-                </dl>
+            <button
+              type="button"
+              className={crosshairsOn ? "cb-btn active" : "cb-btn"}
+              aria-pressed={crosshairsOn}
+              onClick={toggleCrosshairs}
+            >
+              <IconCrosshair />
+              <span>Crosshair</span>
+            </button>
+          </div>
+
+          <div className="cb-divider" />
+
+          <div className="cb-group cb-coords">
+            <span className="cb-label">Position</span>
+            {(["x", "y", "z"] as const).map((axis) => (
+              <label key={axis} className="cb-coord-input">
+                <span>{axis.toUpperCase()}</span>
+                <input
+                  type="number"
+                  value={coords[axis]}
+                  onChange={(e) => jumpToCoord(axis, Number(e.target.value))}
+                />
+              </label>
+            ))}
+            <select
+              className="cb-select"
+              value={coordUnit}
+              aria-label="Coordinate units"
+              onChange={(e) => switchCoordUnit(e.target.value as CoordUnit)}
+            >
+              <option value="mm">mm</option>
+              <option value="vox">vox</option>
+            </select>
+          </div>
+
+          <div className="topbar-spacer" />
+
+          <div className="cb-group">
+            <div className="cb-zoom">
+              <button
+                type="button"
+                className="cb-btn-icon"
+                aria-label="Zoom out"
+                onClick={() => applyZoom(zoomPct - 10)}
+              >
+                −
+              </button>
+              <button
+                type="button"
+                className="cb-btn-text"
+                aria-label="Reset zoom"
+                onClick={() => applyZoom(100)}
+              >
+                {zoomPct}%
+              </button>
+              <button
+                type="button"
+                className="cb-btn-icon"
+                aria-label="Zoom in"
+                onClick={() => applyZoom(zoomPct + 10)}
+              >
+                +
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="cb-btn-icon"
+              aria-label="Fullscreen"
+              onClick={() => void toggleFullscreen()}
+            >
+              <IconExpand />
+            </button>
+          </div>
+
+          {windowOpen && intensitySpan && displayWindow ? (
+            <div className="wl-popover" role="dialog" aria-label="Window / Level presets and range">
+              <div className="wl-header">
+                <span>Window / Level</span>
+                <button
+                  type="button"
+                  className="wl-close"
+                  onClick={() => setWindowOpen(false)}
+                >
+                  ✕
+                </button>
               </div>
-              <p className="study-hint">
-                One volume per tab. Agents share this study; mutating tools run one at a time.
-              </p>
-            </section>
+
+              <div className="wl-presets">
+                <button
+                  type="button"
+                  className="wl-preset-btn"
+                  onClick={() => void applyDisplayWindow(intensitySpan.min, intensitySpan.max)}
+                >
+                  Full range
+                </button>
+                <button
+                  type="button"
+                  className="wl-preset-btn"
+                  onClick={() => {
+                    const span = intensitySpan.max - intensitySpan.min;
+                    void applyDisplayWindow(
+                      intensitySpan.min + span * 0.15,
+                      intensitySpan.min + span * 0.75,
+                    );
+                  }}
+                >
+                  Brain
+                </button>
+                <button
+                  type="button"
+                  className="wl-preset-btn"
+                  onClick={() => {
+                    const span = intensitySpan.max - intensitySpan.min;
+                    void applyDisplayWindow(
+                      intensitySpan.min + span * 0.5,
+                      intensitySpan.max,
+                    );
+                  }}
+                >
+                  Enhancing
+                </button>
+              </div>
+
+              <div className="wl-sliders">
+                <label className="wl-slider-row">
+                  <span className="wl-label">Min</span>
+                  <input
+                    type="range"
+                    min={intensitySpan.min}
+                    max={intensitySpan.max}
+                    step={(intensitySpan.max - intensitySpan.min) / 256 || 1}
+                    value={displayWindow.min}
+                    onChange={(e) =>
+                      void applyDisplayWindow(Number(e.target.value), displayWindow.max)
+                    }
+                  />
+                  <span className="wl-val">{Math.round(displayWindow.min)}</span>
+                </label>
+
+                <label className="wl-slider-row">
+                  <span className="wl-label">Max</span>
+                  <input
+                    type="range"
+                    min={intensitySpan.min}
+                    max={intensitySpan.max}
+                    step={(intensitySpan.max - intensitySpan.min) / 256 || 1}
+                    value={displayWindow.max}
+                    onChange={(e) =>
+                      void applyDisplayWindow(displayWindow.min, Number(e.target.value))
+                    }
+                  />
+                  <span className="wl-val">{Math.round(displayWindow.max)}</span>
+                </label>
+              </div>
+            </div>
           ) : null}
+        </div>
+      ) : null}
 
-          <p className="disclaimer">
-            Research and education only. Not a medical device. Not for diagnostic use.
-          </p>
-        </aside>
-
+      <div className={panelOpen ? "workspace panel-open" : "workspace"}>
         <main
           ref={stageRef as never}
           className={hasStudy ? "stage has-study" : "stage"}
           aria-label="Volume viewport"
         >
-          {hasStudy ? (
-            <div className="stage-toolbar" role="toolbar" aria-label="View mode">
-              <div className="seg">
-                {VIEW_OPTIONS.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    aria-pressed={view === option.id}
-                    disabled={loading}
-                    onClick={() => applyView(option.id)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className={windowOpen ? "tool-icon active" : "tool-icon"}
-                aria-label="Window / level"
-                aria-expanded={windowOpen}
-                title="Window / level"
-                onClick={() => setWindowOpen((v) => !v)}
-              >
-                <IconSun />
-              </button>
-              {windowOpen && intensitySpan && displayWindow ? (
-                <div className="window-popover" role="dialog" aria-label="Display window">
-                  <label>
-                    <span>Min</span>
-                    <input
-                      type="range"
-                      min={intensitySpan.min}
-                      max={intensitySpan.max}
-                      step={(intensitySpan.max - intensitySpan.min) / 256 || 1}
-                      value={displayWindow.min}
-                      onChange={(e) =>
-                        void applyDisplayWindow(Number(e.target.value), displayWindow.max)
-                      }
-                    />
-                    <em>{Math.round(displayWindow.min)}</em>
-                  </label>
-                  <label>
-                    <span>Max</span>
-                    <input
-                      type="range"
-                      min={intensitySpan.min}
-                      max={intensitySpan.max}
-                      step={(intensitySpan.max - intensitySpan.min) / 256 || 1}
-                      value={displayWindow.max}
-                      onChange={(e) =>
-                        void applyDisplayWindow(displayWindow.min, Number(e.target.value))
-                      }
-                    />
-                    <em>{Math.round(displayWindow.max)}</em>
-                  </label>
-                  <button
-                    type="button"
-                    className="window-reset"
-                    onClick={() => void applyDisplayWindow(intensitySpan.min, intensitySpan.max)}
-                  >
-                    Reset
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
           <canvas ref={canvasRef} aria-hidden={!hasStudy} />
 
-          {hasStudy ? (
-            <div className="stage-footer" role="toolbar" aria-label="Viewport controls">
-              <label className="toggle">
-                <span>Crosshairs</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={crosshairsOn}
-                  className={crosshairsOn ? "switch on" : "switch"}
-                  onClick={toggleCrosshairs}
-                >
-                  <span className="switch-knob" />
-                  <span className="switch-label">{crosshairsOn ? "ON" : "OFF"}</span>
-                </button>
-              </label>
-
-              <div className="coord-row">
-                {(["x", "y", "z"] as const).map((axis) => (
-                  <label key={axis} className="coord">
-                    <span>{axis.toUpperCase()}</span>
-                    <input
-                      type="number"
-                      value={coords[axis]}
-                      onChange={(e) => jumpToCoord(axis, Number(e.target.value))}
-                    />
-                  </label>
-                ))}
-                <select
-                  className="unit-select"
-                  value={coordUnit}
-                  aria-label="Coordinate units"
-                  onChange={(e) => switchCoordUnit(e.target.value as CoordUnit)}
-                >
-                  <option value="mm">mm</option>
-                  <option value="vox">vox</option>
-                </select>
-              </div>
-
-              <div className="zoom-row">
-                <button type="button" className="tool-icon" aria-label="Zoom out" onClick={() => applyZoom(zoomPct - 10)}>
-                  −
-                </button>
-                <button type="button" className="zoom-readout" aria-label="Reset zoom" onClick={() => applyZoom(100)}>
-                  <IconSearch /> {zoomPct}%
-                </button>
-                <button type="button" className="tool-icon" aria-label="Zoom in" onClick={() => applyZoom(zoomPct + 10)}>
-                  +
-                </button>
-                <button type="button" className="tool-icon" aria-label="Fullscreen" onClick={() => void toggleFullscreen()}>
-                  <IconExpand />
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           {loading ? (
-            <div className="loading-veil" role="status">
-              Decoding volume
+            <div className="loading-state" role="status">
+              <div className="spinner" />
+              <p>Decoding NIfTI volume…</p>
             </div>
           ) : null}
 
           {!studyName && !loading ? (
-            <div className="empty">
-              <p className="empty-kicker">Reading room</p>
-              <h2>Open a study. Keep the voxels here.</h2>
-              <p>Open a volume in this tab. The agent works from measurements — never the image itself.</p>
-              <div className="empty-actions">
-                <button type="button" className="btn btn-primary" onClick={() => void loadDemo()}>
-                  <IconFolder />
-                  Load demo CT/MR
-                </button>
-                <label className="btn btn-ghost">
-                  <IconUpload />
-                  Open NIfTI
-                  <input
-                    type="file"
-                    accept=".nii,.nii.gz,.gz"
-                    onChange={(event) => pickFile(event, openFile)}
-                  />
-                </label>
+            <div className="empty-state">
+              <div className="empty-dialog">
+                <div className="empty-icon-wrap">
+                  <IconFolderLarge />
+                </div>
+                <h2>No study open</h2>
+                <p>Open a NIfTI volume (.nii, .nii.gz) or load the reference sample.</p>
+                <div className="empty-actions">
+                  <label className="btn primary">
+                    <IconUpload />
+                    Open file
+                    <input
+                      type="file"
+                      accept=".nii,.nii.gz,.gz"
+                      onChange={(event) => pickFile(event, openFile)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => void loadDemo()}
+                  >
+                    Load sample study
+                  </button>
+                </div>
               </div>
             </div>
           ) : null}
         </main>
+
+        {panelOpen ? (
+          <aside className="sidebar" aria-label="Findings inspector">
+            <div className="sidebar-header">
+              <h3>Findings</h3>
+              <span className="sidebar-count">{regions.length} detected</span>
+              <button
+                type="button"
+                className="sidebar-close"
+                aria-label="Close panel"
+                onClick={() => setPanelOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="sidebar-body">
+              {regions.length === 0 ? (
+                <div className="sidebar-empty">
+                  <p>No segmented regions.</p>
+                  <p className="sub">Call <code>find_regions</code> to detect 3D intensity clusters.</p>
+                </div>
+              ) : (
+                <div className="regions-list">
+                  {regions.map((region) => (
+                    <button
+                      key={region.id}
+                      type="button"
+                      className={focused === region.id ? "region-row focused" : "region-row"}
+                      onClick={() => focusRegion(region)}
+                    >
+                      <div className="region-main">
+                        <span className="region-title">Region {region.id}</span>
+                        <span className="region-vol">{region.volumeMl.toFixed(2)} mL</span>
+                      </div>
+                      <div className="region-details">
+                        <span>{region.maxExtentMm.toFixed(1)} mm extent</span>
+                        <span>μ {region.meanIntensity.toFixed(0)}</span>
+                        <span>{region.voxelCount.toLocaleString()} vox</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="sidebar-meta">
+                <h4>Study info</h4>
+                <dl className="meta-grid">
+                  <dt>File</dt>
+                  <dd title={studyName ?? ""}>{studyName}</dd>
+                  <dt>Dimensions</dt>
+                  <dd>{studyMeta?.dims.join(" × ")}</dd>
+                  <dt>Spacing</dt>
+                  <dd>{studyMeta?.spacing.map((s) => s.toFixed(2)).join(" × ")} mm</dd>
+                  <dt>Epoch</dt>
+                  <dd>{studyEpoch}</dd>
+                  <dt>Layout</dt>
+                  <dd>{VIEW_LABEL[view]}</dd>
+                  <dt>Backend</dt>
+                  <dd>{backend}</dd>
+                </dl>
+                {loadError ? <p className="load-error">{loadError}</p> : null}
+              </div>
+            </div>
+          </aside>
+        ) : null}
       </div>
+
+      <footer className="statusbar">
+        <div className="sb-group">
+          <div className="sb-item">
+            <span className="sb-label">POSITION</span>
+            <strong className="sb-val">{coords.x}, {coords.y}, {coords.z} {coordUnit}</strong>
+          </div>
+          {intensitySpan ? (
+            <div className="sb-item">
+              <span className="sb-label">RANGE</span>
+              <strong className="sb-val">{Math.round(intensitySpan.min)} → {Math.round(intensitySpan.max)}</strong>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="topbar-spacer" />
+
+        <div className="sb-agent-pill" title="Autonomous AI agents can directly invoke WebMCP tools on this page">
+          <span className="sb-agent-dot" aria-hidden="true" />
+          <span>Faraday supports agents natively with WebMCP</span>
+        </div>
+
+        <div className="topbar-spacer" />
+
+        <div className="sb-group">
+          <div className="sb-item">
+            <span className="sb-label">ACCELERATION</span>
+            <strong className="sb-val sb-backend">{backend.toUpperCase()}</strong>
+          </div>
+          <div className="sb-item sb-pill">
+            <span>Zero Egress · In-tab compute</span>
+          </div>
+        </div>
+      </footer>
 
       <FaradayTools controller={controller} />
       <ConfirmDialog studyEpoch={studyEpoch} />
     </div>
-  );
-}
-
-function RailButton({
-  label,
-  active,
-  onClick,
-  children,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className={active ? "rail-btn active" : "rail-btn"}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      title={label}
-      onClick={onClick}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -771,15 +860,18 @@ function ConfirmDialog({ studyEpoch }: { studyEpoch: number }) {
   return (
     <div className="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
       <div className="sheet">
-        <h2 id="confirm-title">Approve “{pending.tool}”?</h2>
-        <p>This tool may send measurements off the page. Voxel data stays here.</p>
+        <h2 id="confirm-title">Approve tool execution</h2>
+        <p className="sheet-msg">
+          The agent requested to run <strong>“{pending.tool}”</strong>.
+          Measurement summary will be exported. Volumetric voxels stay in this tab.
+        </p>
         <pre>{JSON.stringify(pending.args, null, 2)}</pre>
-        <div className="actions">
-          <button type="button" className="btn btn-danger" onClick={() => pending.reject()}>
+        <div className="sheet-actions">
+          <button type="button" className="btn secondary" onClick={() => pending.reject()}>
             Decline
           </button>
-          <button type="button" className="btn btn-approve" onClick={() => pending.approve()}>
-            Approve
+          <button type="button" className="btn primary" onClick={() => pending.approve()}>
+            Approve export
           </button>
         </div>
       </div>
@@ -787,91 +879,70 @@ function ConfirmDialog({ studyEpoch }: { studyEpoch: number }) {
   );
 }
 
-function IconCage() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-      <rect x="1.25" y="1.25" width="19.5" height="19.5" rx="4" stroke="currentColor" strokeWidth="1.4" />
-      <rect x="5.5" y="5.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.2" opacity="0.55" />
-      <circle cx="11" cy="11" r="1.6" fill="currentColor" />
-    </svg>
-  );
-}
-
 function IconFolder() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9Z" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   );
 }
 
-function IconUpload() {
+function IconFolderLarge() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9Z" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function IconUpload({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 16V4m0 0 4 4m-4-4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
 
-function IconHome() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function IconDatabase() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <ellipse cx="12" cy="6" rx="7" ry="3" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  );
-}
-
 function IconTags() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M3 12V5.5A1.5 1.5 0 0 1 4.5 4H12l8 8-7.5 7.5L3 12Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
       <circle cx="8" cy="8" r="1.2" fill="currentColor" />
     </svg>
   );
 }
 
-function IconSettings() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 3.5v2.2M12 18.3v2.2M4.9 7.1l1.6 1.5M17.5 15.4l1.6 1.5M3.5 12h2.2M18.3 12h2.2M4.9 16.9l1.6-1.5M17.5 8.6l1.6-1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function IconSun() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
 
-function IconSearch() {
+function IconMoon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.7" />
-      <path d="m20 20-4.2-4.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconCrosshair() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
 
 function IconExpand() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

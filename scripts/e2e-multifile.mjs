@@ -58,7 +58,10 @@ const upload = async (filename) => {
     buffer: bytes,
   });
   await page.waitForFunction(
-    (name) => document.body.innerText.includes(name) && !/Decoding volume/.test(document.body.innerText),
+    (name) =>
+      document.body.innerText.includes(name) &&
+      document.querySelector(".stage.has-study canvas") &&
+      !/Decoding volume/.test(document.body.innerText),
     filename,
     { timeout: 90_000 },
   );
@@ -74,8 +77,8 @@ if (!String(a.study).includes("study-alpha")) {
 // Same bytes, new name — proves replace + input reset + epoch bump
 await upload("study-beta.nii.gz");
 const regionsAfterSwitch = await page.evaluate(() => {
-  const rail = document.body.innerText;
-  return /Regions · 0|No regions yet/.test(rail);
+  const chip = document.querySelector(".study-chip")?.textContent ?? "";
+  return chip.includes("study-beta") && !/region/i.test(chip);
 });
 if (!regionsAfterSwitch) {
   throw new Error("regions rail should clear when opening a new file");
