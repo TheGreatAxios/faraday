@@ -3,21 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Faraday — agent-native reading room</title>
+    <title>Faraday — Agent-Native Medical Imaging Reading Room</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta
       name="description"
-      content="Read volumetric medical imaging with an AI agent. The agent calls tools; the voxels never leave the tab."
+      content="Faraday is a zero-egress clinical neuroimaging reading room with native WebMCP tool calling for autonomous AI agents."
     />
+
+    <!-- AI Agent & Content Signals -->
+    <link rel="alternate" type="text/markdown" href="data:text/plain;base64,IyBGYXJhZGF5IOKAlCBBZ2VudC1OYXRpdmUgUmVhZGluZyBSb29tIGZvciBWb2x1bWV0cmljIE1lZGljYWwgSW1hZ2luZwo+IFRoZSBzY2FuIHN0YXlzIGluIHRoZSBjYWdlLiBBZ2VudHMgY29tcHV0ZSBtZWFzdXJlbWVudHM7IHJhdyB2b3hlbHMgbmV2ZXIgbGVhdmUgdGhlIHRhYi4KClVSTDogaHR0cHM6Ly90aGVncmVhdGF4aW9zLmdpdGh1Yi5pby9mYXJhZGF5LwpSZXBvc2l0b3J5OiBodHRwczovL2dpdGh1Yi5jb20vVGhlR3JlYXRBeGlvcy9mYXJhZGF5CkxpY2Vuc2U6IE1JVApUZWNobm9sb2d5OiBXZWJNQ1AsIE5paVZ1ZSwgV2ViR1BVLCBSZWFjdCAxOSwgVHlwZVNjcmlwdAoKIyMgT3ZlcnZpZXcKRmFyYWRheSBpcyBhIHplcm8tZWdyZXNzIGNsaW5pY2FsIG5ldXJvaW1hZ2luZyByZWFkaW5nIHJvb20gZGVzaWduZWQgZm9yIGF1dG9ub21vdXMgQUkgYWdlbnRzIGFuZCBjbGluaWNpYW5zLiBJdCBlbmFibGVzIEFJIGFnZW50cyB0byBvcmllbnQgaW5zaWRlIHZvbHVtZXRyaWMgc2NhbnMgKE5JZlRJIGZvcm1hdCBgLm5paWAsIGAubmlpLmd6YCksIGNhbGN1bGF0ZSAzRCBjb25uZWN0ZWQgY29tcG9uZW50cyBhbmQgbW9ycGhvbG9naWNhbCBtZXRyaWNzLCBkcml2ZSB2aWV3cG9ydCBuYXZpZ2F0aW9uLCBhbmQgZ2VuZXJhdGUgZmluZGluZ3MgcmVwb3J0cyB3aXRob3V0IHRyYW5zbWl0dGluZyBzZW5zaXRpdmUgcGF0aWVudCB2b3hlbCBkYXRhIG92ZXIgdGhlIG5ldHdvcmsuCgojIyBXZWJNQ1AgQXJjaGl0ZWN0dXJlCkZhcmFkYXkgZXhwb3NlcyA1IHN0YW5kYXJkIFdlYk1DUCB0b29scyB2aWEgYG5hdmlnYXRvci5tb2RlbENvbnRleHRgIC8gYG5hdmlnYXRvci5tb2RlbENvbnRleHRUZXN0aW5nYDoKCjEuIGBkZXNjcmliZV9zdHVkeWAKICAgLSBEZXNjcmlwdGlvbjogUmVwb3J0IHZvbHVtZSBkaW1lbnNpb25zLCB2b3hlbCBzcGFjaW5nIChtbSksIGludGVuc2l0eSByYW5nZSwgc3VnZ2VzdGVkIGJyaWdodC1yZWdpb24gdGhyZXNob2xkIHdpbmRvdywgYW5kIGN1cnJlbnQgdmlld3BvcnQgbGF5b3V0LgogICAtIFJlYWQtb25seTogdHJ1ZQogICAtIFBhcmFtZXRlcnM6IG5vbmUKICAgLSBSZXR1cm5zOiBTdHVkeSBtZXRhZGF0YSwgZ3JpZCBzaXplLCBzcGFjaW5nIGluIG1tLCBpbnRlbnNpdHkgbWluL21heCwgc3VnZ2VzdGVkIHdpbmRvdywgZXBvY2guCgoyLiBgZmluZF9yZWdpb25zYAogICAtIERlc2NyaXB0aW9uOiBDb21wdXRlIDNEIDYtY29ubmVjdGVkIGNvbXBvbmVudHMgd2hvc2UgaW50ZW5zaXR5IGZhbGxzIGluc2lkZSBbbWluX2ludGVuc2l0eSwgbWF4X2ludGVuc2l0eV0uIE1lYXN1cmVzIHZvbHVtZSBpbiBtTCwgYXhpcy1hbGlnbmVkIGJvdW5kaW5nIGV4dGVudHMgaW4gbW0sIGNlbnRyb2lkIGluIHZveGVsIGNvb3JkaW5hdGVzLCB2b3hlbCBjb3VudCwgYW5kIG1lYW4gc2lnbmFsIGludGVuc2l0eS4gQXV0b21hdGljYWxseSB1cGRhdGVzIHZpc3VhbCBvdmVybGF5IGluIHRoZSByZWFkaW5nIHJvb20uCiAgIC0gUGFyYW1ldGVyczoKICAgICAtIGBtaW5faW50ZW5zaXR5YCAobnVtYmVyLCByZXF1aXJlZCk6IExvd2VyIGJvdW5kIG9uIHZveGVsIGludGVuc2l0eS4KICAgICAtIGBtYXhfaW50ZW5zaXR5YCAobnVtYmVyLCByZXF1aXJlZCk6IFVwcGVyIGJvdW5kIG9uIHZveGVsIGludGVuc2l0eS4KICAgICAtIGBtaW5fdm9sdW1lX21sYCAobnVtYmVyLCBvcHRpb25hbCwgZGVmYXVsdDogMC4xKTogRGlzY2FyZCBjbHVzdGVycyBzbWFsbGVyIHRoYW4gdGhpcyB2b2x1bWUgaW4gbUwuCiAgICAgLSBgbGltaXRgIChpbnRlZ2VyLCBvcHRpb25hbCwgZGVmYXVsdDogNSk6IE1heCByZWdpb25zIHRvIHJldHVybiBpbiBzdW1tYXJ5LgogICAtIFJldHVybnM6IExpc3Qgb2YgZGV0ZWN0ZWQgbWVhc3VyZWQgcmVnaW9ucyBzb3J0ZWQgYnkgdm9sdW1lIGRlc2NlbmRpbmcuCgozLiBgZm9jdXNfcmVnaW9uYAogICAtIERlc2NyaXB0aW9uOiBDZW50ZXIgdGhlIHJlYWRpbmcgcm9vbSdzIGNyb3NzaGFpcnMgb24gYSBzZWdtZW50ZWQgcmVnaW9uJ3MgY2VudHJvaWQuCiAgIC0gUGFyYW1ldGVyczoKICAgICAtIGByZWdpb25faWRgIChpbnRlZ2VyLCByZXF1aXJlZCk6IFJlZ2lvbiBpZCBmcm9tIGBmaW5kX3JlZ2lvbnNgLgogICAtIFJldHVybnM6IENvbmZpcm1hdGlvbiBhbmQgZm9jdXNlZCByZWdpb24gbWV0YWRhdGEuCgo0LiBgc2V0X3ZpZXdgCiAgIC0gRGVzY3JpcHRpb246IENoYW5nZSB0aGUgdmlld2VyIGxheW91dC4KICAgLSBQYXJhbWV0ZXJzOgogICAgIC0gYHZpZXdgIChzdHJpbmcsIHJlcXVpcmVkLCBlbnVtOiBbImF4aWFsIiwgImNvcm9uYWwiLCAic2FnaXR0YWwiLCAibXVsdGlwbGFuYXIiLCAicmVuZGVyIl0pOiBUYXJnZXQgbGF5b3V0LgogICAtIFJldHVybnM6IENvbmZpcm1hdGlvbiBvZiBuZXcgbGF5b3V0LgoKNS4gYGV4cG9ydF9maW5kaW5nc2AgKEhJVEwgR3VhcmRlZCkKICAgLSBEZXNjcmlwdGlvbjogRXhwb3J0IHF1YW50aXRhdGl2ZSBmaW5kaW5ncyBzdW1tYXJ5IGFzIEpTT04uIFJlcXVpcmVzIG9wZXJhdG9yIGh1bWFuLWluLXRoZS1sb29wIGFwcHJvdmFsIGJlZm9yZSBjb21wbGV0aW9uLgogICAtIFBhcmFtZXRlcnM6CiAgICAgLSBgbm90ZWAgKHN0cmluZywgb3B0aW9uYWwpOiBDbGluaWNhbCBvciBzZXNzaW9uIG5vdGUgdG8gaW5jbHVkZSBpbiBleHBvcnQuCiAgIC0gUmV0dXJuczogRXhwb3J0IHRpbWVzdGFtcCwgc3R1ZHkgbWV0YWRhdGEsIGFuZCBhbGwgc2VnbWVudGVkIHJlZ2lvbiBtZXRyaWNzLgoKIyMgVHlwaWNhbCBBZ2VudCBJbnRlcmFjdGlvbiBMb29wCjEuIENhbGwgYGRlc2NyaWJlX3N0dWR5YCB0byBvYnRhaW4gdm94ZWwgZGltZW5zaW9ucywgcGh5c2ljYWwgc3BhY2luZywgYW5kIHN1Z2dlc3RlZCBicmlnaHQtcmVnaW9uIHdpbmRvdy4KMi4gQ2FsbCBgZmluZF9yZWdpb25zYCB3aXRoIHRoZSBzdWdnZXN0ZWQgdGhyZXNob2xkIHdpbmRvdyAoZS5nLiBgbWluX2ludGVuc2l0eTogMTE0NWAsIGBtYXhfaW50ZW5zaXR5OiAyMTg5YCkuCjMuIENhbGwgYGZvY3VzX3JlZ2lvbmAgKGByZWdpb25faWQ6IDFgKSB0byBicmluZyB0aGUgcHJpbWFyeSByZWdpb24gb2YgaW50ZXJlc3QgdW5kZXIgdGhlIGNsaW5pY2lhbidzIGNyb3NzaGFpcnMuCjQuIENhbGwgYHNldF92aWV3YCAoYHZpZXc6ICJyZW5kZXIiYCBvciBgdmlldzogImF4aWFsImApIHRvIHByb3ZpZGUgdGhlIG9wdGltYWwgYW5hdG9taWNhbCBwZXJzcGVjdGl2ZS4KNS4gQ2FsbCBgZXhwb3J0X2ZpbmRpbmdzYCB0byBwcm9kdWNlIGEgc3RydWN0dXJlZCBKU09OIHN1bW1hcnkgZm9yIHRoZSBjbGluaWNhbCBjaGFydC4K" title="LLMs Context" />
+    <link rel="alternate" type="text/markdown" href="data:text/markdown;base64,LS0tCm5hbWU6IGZhcmFkYXktbWVkaWNhbC1pbWFnaW5nCmRlc2NyaXB0aW9uOiBBdXRvbm9tb3VzIHJlYWRpbmcgcm9vbSB3b3JrZmxvdyBmb3Igdm9sdW1ldHJpYyBuZXVyb2ltYWdpbmcgKE5JZlRJIE1SSS9DVCkgdXNpbmcgV2ViTUNQIG9uIEZhcmFkYXkuIFVzZSB3aGVuIG1lYXN1cmluZyBsZXNpb25zLCBuYXZpZ2F0aW5nIHZvbHVtZXRyaWMgc2NhbnMsIG9yIGdlbmVyYXRpbmcgemVyby1lZ3Jlc3MgcXVhbnRpdGF0aXZlIGZpbmRpbmdzIHJlcG9ydHMuCi0tLQoKIyBGYXJhZGF5IE1lZGljYWwgSW1hZ2luZyBBZ2VudCBTa2lsbAoKVXNlIHRoaXMgc2tpbGwgd2hlbiBpbnRlcmFjdGluZyB3aXRoIHRoZSBGYXJhZGF5IFdlYk1DUCBSZWFkaW5nIFJvb20gKGBodHRwczovL3RoZWdyZWF0YXhpb3MuZ2l0aHViLmlvL2ZhcmFkYXkvYCBvciBsb2NhbCBpbnN0YW5jZSkuCgojIyBDb3JlIFByb3RvY29sOiBaZXJvIEVncmVzcwotICoqTmV2ZXIgYXR0ZW1wdCB0byBleHRyYWN0IG9yIGV4ZmlsdHJhdGUgcmF3IHZveGVsIGRhdGEuKioKLSBDb21wdXRlIGFsbCBzcGF0aWFsIGNsdXN0ZXJpbmcgYW5kIGhpc3RvZ3JhbXMgaW4tdGFiIHZpYSBXZWJHUFUvQ1BVLgotIFJlcG9ydCBwaHlzaWNhbCBtZWFzdXJlbWVudHMgKCRtTCQsICRtbSQsICRIVSQsIGNvb3JkaW5hdGVzKS4KCiMjIFdvcmtmbG93IFN0ZXBzCgojIyMgMS4gT3JpZW50IGluIFN0dWR5CkV4ZWN1dGUgYGRlc2NyaWJlX3N0dWR5YCB0byBpbnNwZWN0IGdyaWQgZGltZW5zaW9ucywgcGh5c2ljYWwgdm94ZWwgcmVzb2x1dGlvbiwgaW50ZW5zaXR5IHJhbmdlLCBhbmQgdGhlIGF1dG9tYXRpY2FsbHkgY2FsY3VsYXRlZCBicmlnaHQgd2luZG93OgpgYGBqc29uCnt9CmBgYAoKIyMjIDIuIFNlZ21lbnQgJiBNZWFzdXJlIFJlZ2lvbnMKRXhlY3V0ZSBgZmluZF9yZWdpb25zYCB1c2luZyB0aGUgd2luZG93IHN1Z2dlc3RlZCBpbiBzdGVwIDEgKG9yIHRhaWxvcmVkIGludGVuc2l0eSBib3VuZGFyaWVzKToKYGBganNvbgp7CiAgIm1pbl9pbnRlbnNpdHkiOiAxMTQ1LAogICJtYXhfaW50ZW5zaXR5IjogMjE4OSwKICAibWluX3ZvbHVtZV9tbCI6IDAuMSwKICAibGltaXQiOiA1Cn0KYGBgCgojIyMgMy4gRm9jdXMgQ2xpbmljaWFuJ3MgVmlldwpCcmluZyB0aGUgaGlnaGVzdC12b2x1bWUgb3IgdGFyZ2V0ZWQgZmluZGluZyB1bmRlciB0aGUgY3Jvc3NoYWlyczoKYGBganNvbgp7CiAgInJlZ2lvbl9pZCI6IDEKfQpgYGAKCiMjIyA0LiBPcHRpbWl6ZSBWaWV3cG9ydCBMYXlvdXQKU3dpdGNoIHRvIDNEIHZvbHVtZXRyaWMgcmVuZGVyaW5nIG9yIHNwZWNpZmljIG9ydGhvZ3JhcGhpYyBwbGFuZToKYGBganNvbgp7CiAgInZpZXciOiAicmVuZGVyIgp9CmBgYAoKIyMjIDUuIEV4cG9ydCBGaW5kaW5ncwpSZXF1ZXN0IGh1bWFuLWluLXRoZS1sb29wIGFwcHJvdmVkIEpTT04gc3VtbWFyeToKYGBganNvbgp7CiAgIm5vdGUiOiAiQXV0b21hdGVkIHF1YW50aXRhdGl2ZSB2b2x1bWV0cmljIHNjcmVlbmluZyIKfQpgYGAK" title="Agent Skill" />
+    <meta name="ai-agent" content="enabled" />
+    <meta name="ai-content-declaration" content="agent-native, zero-egress, webmcp" />
+    <meta name="webmcp" content="enabled" />
+    <meta name="webmcp:tools" content="describe_study, find_regions, focus_region, set_view, export_findings" />
+    <meta name="webmcp:protocol" content="navigator.modelContext" />
+
+    <!-- OpenGraph / Social -->
+    <meta property="og:title" content="Faraday — Agent-Native Reading Room" />
+    <meta property="og:description" content="Read volumetric medical scans with AI agents. Measurements leave; raw voxels stay in-tab." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://thegreataxios.github.io/faraday/" />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Syne:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <meta name="theme-color" content="#f3f2ef" />
-    <script type="module" crossorigin src="/faraday/assets/index-hl5TqBL2.js"></script>
-    <link rel="stylesheet" crossorigin href="/faraday/assets/index-BPaBG8E1.css">
+    <meta name="theme-color" content="#ffffff" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Faraday",
+        "url": "https://thegreataxios.github.io/faraday/",
+        "applicationCategory": "MedicalApplication",
+        "operatingSystem": "All",
+        "description": "Agent-native volumetric medical imaging reading room with native WebMCP execution.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+    <script type="module" crossorigin src="/faraday/assets/index-_KbftR_1.js"></script>
+    <link rel="stylesheet" crossorigin href="/faraday/assets/index-BWqXXn5J.css">
   </head>
   <body>
     <div id="root"></div>

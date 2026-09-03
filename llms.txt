@@ -1,0 +1,53 @@
+# Faraday — Agent-Native Reading Room for Volumetric Medical Imaging
+> The scan stays in the cage. Agents compute measurements; raw voxels never leave the tab.
+
+URL: https://thegreataxios.github.io/faraday/
+Repository: https://github.com/TheGreatAxios/faraday
+License: MIT
+Technology: WebMCP, NiiVue, WebGPU, React 19, TypeScript
+
+## Overview
+Faraday is a zero-egress clinical neuroimaging reading room designed for autonomous AI agents and clinicians. It enables AI agents to orient inside volumetric scans (NIfTI format `.nii`, `.nii.gz`), calculate 3D connected components and morphological metrics, drive viewport navigation, and generate findings reports without transmitting sensitive patient voxel data over the network.
+
+## WebMCP Architecture
+Faraday exposes 5 standard WebMCP tools via `navigator.modelContext` / `navigator.modelContextTesting`:
+
+1. `describe_study`
+   - Description: Report volume dimensions, voxel spacing (mm), intensity range, suggested bright-region threshold window, and current viewport layout.
+   - Read-only: true
+   - Parameters: none
+   - Returns: Study metadata, grid size, spacing in mm, intensity min/max, suggested window, epoch.
+
+2. `find_regions`
+   - Description: Compute 3D 6-connected components whose intensity falls inside [min_intensity, max_intensity]. Measures volume in mL, axis-aligned bounding extents in mm, centroid in voxel coordinates, voxel count, and mean signal intensity. Automatically updates visual overlay in the reading room.
+   - Parameters:
+     - `min_intensity` (number, required): Lower bound on voxel intensity.
+     - `max_intensity` (number, required): Upper bound on voxel intensity.
+     - `min_volume_ml` (number, optional, default: 0.1): Discard clusters smaller than this volume in mL.
+     - `limit` (integer, optional, default: 5): Max regions to return in summary.
+   - Returns: List of detected measured regions sorted by volume descending.
+
+3. `focus_region`
+   - Description: Center the reading room's crosshairs on a segmented region's centroid.
+   - Parameters:
+     - `region_id` (integer, required): Region id from `find_regions`.
+   - Returns: Confirmation and focused region metadata.
+
+4. `set_view`
+   - Description: Change the viewer layout.
+   - Parameters:
+     - `view` (string, required, enum: ["axial", "coronal", "sagittal", "multiplanar", "render"]): Target layout.
+   - Returns: Confirmation of new layout.
+
+5. `export_findings` (HITL Guarded)
+   - Description: Export quantitative findings summary as JSON. Requires operator human-in-the-loop approval before completion.
+   - Parameters:
+     - `note` (string, optional): Clinical or session note to include in export.
+   - Returns: Export timestamp, study metadata, and all segmented region metrics.
+
+## Typical Agent Interaction Loop
+1. Call `describe_study` to obtain voxel dimensions, physical spacing, and suggested bright-region window.
+2. Call `find_regions` with the suggested threshold window (e.g. `min_intensity: 1145`, `max_intensity: 2189`).
+3. Call `focus_region` (`region_id: 1`) to bring the primary region of interest under the clinician's crosshairs.
+4. Call `set_view` (`view: "render"` or `view: "axial"`) to provide the optimal anatomical perspective.
+5. Call `export_findings` to produce a structured JSON summary for the clinical chart.
