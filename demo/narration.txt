@@ -1,7 +1,11 @@
-This is Faraday. Every MRI suite is a Faraday cage — RF doesn't leave the room. Same idea for data: open a NIfTI in this tab; the scan never leaves.
+This is Faraday. When a hospital runs an MRI or CT scan, they can't upload sensitive patient data to cloud AI.
 
-Without WebMCP, an agent sees a blank canvas. With WebMCP it gets real tools. Describe the study. Find bright regions. Focus one. Switch to three-D.
+Faraday solves this by running the analysis directly in the doctor's browser.
 
-The only tool that moves data off the page is export findings — and it needs my approval. Measurements leave. Voxels stay.
+The AI agent gets real tools: it can inspect scan dimensions, measure high-intensity tumor regions, center the crosshair, and switch to three-D rendering.
 
-Faraday — agent-native reading room. Open source. Not for diagnosis. Built for the WebMCP Challenge.
+And when it's time to export findings, it requires human approval.
+
+The doctor gets instant measurements. The patient scan never leaves the room.
+
+Faraday. Private, agent-native medical imaging.

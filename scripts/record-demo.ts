@@ -62,8 +62,8 @@ async function main() {
     if (msg.type() === "error") console.error("console:", msg.text());
   });
 
-  await page.goto(BASE, { waitUntil: "networkidle" });
-  await sleep(2500);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await sleep(2000);
 
   // Local file open (core judge path) — not only the demo button.
   await page.locator('input[type="file"]').first().setInputFiles({
@@ -72,15 +72,15 @@ async function main() {
     buffer: sampleBytes,
   });
   await page.waitForFunction(
-    () => /patient-study\.nii\.gz/.test(document.body.innerText) && !/Decoding volume/.test(document.body.innerText),
+    () => /patient-study\.nii\.gz/.test(document.body.innerText) && !/Decoding/i.test(document.body.innerText),
     null,
     { timeout: 90_000 },
   );
-  await sleep(2000);
+  await sleep(3000);
 
   const describe = await waitForVolume(page);
   console.log("describe:", describe.content?.[0]?.text?.slice(0, 240));
-  await sleep(3500);
+  await sleep(4000);
 
   const windowHint = describe.structuredContent?.suggested_window as
     | { min?: number; max?: number }
@@ -95,22 +95,22 @@ async function main() {
     limit: 5,
   });
   console.log("find:", found.content?.[0]?.text?.slice(0, 280));
-  await sleep(4000);
+  await sleep(5000);
 
   await callTool(page, "focus_region", { region_id: 1 });
-  await sleep(2500);
+  await sleep(3500);
   await callTool(page, "set_view", { view: "render" });
-  await sleep(4000);
+  await sleep(5000);
 
   const exportPromise = callTool(page, "export_findings", {
     note: "Demo export — measurements only",
   });
   await page.waitForSelector(".confirm", { timeout: 15_000 });
-  await sleep(2000);
-  await page.getByRole("button", { name: "Approve" }).click();
+  await sleep(3000);
+  await page.locator("button", { hasText: /Approve/i }).first().click();
   const exported = await exportPromise;
   console.log("export:", exported.content?.[0]?.text?.slice(0, 200), "isError=", exported.isError);
-  await sleep(4000);
+  await sleep(5000);
 
   const video = page.video();
   await context.close();

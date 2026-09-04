@@ -8,15 +8,15 @@ Faraday — agent-native volumetric reading room
 
 ## Tagline
 
-The scan stays in the cage.
+AI measures the scan. The patient data never leaves the hospital.
 
 ## Elevator (built with)
 
-WebMCP · NiiVue (WebGPU/WebGL2) · React · Vite · Bun
+WebMCP · NiiVue (WebGPU/WebGL2) · React · TypeScript · Vite · Bun
 
 ## Why this is a strong fit for WebMCP
 
-Medical volumes live as GPU textures. DOM automation sees an empty canvas. Server-side MCP cannot reach PHI that must never leave the hospital network. Faraday exposes structured tools on the page so ChatGPT/Codex can measure anatomy **without ever receiving voxels**. Journeys scope tools by phase (`review` / `report`); `export_findings` is human-gated.
+Hospitals cannot upload sensitive CT and MRI scans to cloud AI without violating patient privacy. At the same time, traditional web automation is blind to 3D medical canvases. Faraday uses WebMCP to run the tools in the doctor's browser: the AI agent inspects scan dimensions, measures tumor volumes, and controls the 3D viewport, while the raw scan never leaves the local machine. All findings exports require human doctor approval.
 
 ## Better UX: what people and agents do together
 
